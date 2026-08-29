@@ -1,0 +1,158 @@
+// OTT Weekly Pulse — Database Schema
+// Postgres via Supabase. Run `npm run db:push` then `npm run db:seed`.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum TitleType {
+  MOVIE
+  SERIES
+  DOCUMENTARY
+}
+
+enum OriginalLanguage {
+  ENGLISH
+  HINDI
+  MARATHI
+  OTHER
+}
+
+enum EditorialBadge {
+  CRITIC_PICK
+  TRENDING
+  BINGE_WORTHY
+  HIDDEN_GEM
+  FAMILY_WATCH
+  EDITORS_CHOICE
+}
+
+enum Platform {
+  NETFLIX
+  PRIME_VIDEO
+  DISNEY_HOTSTAR
+  JIOCINEMA
+  SONYLIV
+  ZEE5
+  APPLE_TV
+  MUBI
+  AHA
+  SUNNXT
+}
+
+enum Genre {
+  THRILLER
+  COMEDY
+  DRAMA
+  ACTION
+  SCI_FI
+  ROMANCE
+  HORROR
+  CRIME
+  MYSTERY
+  FAMILY
+  BIOPIC
+  FANTASY
+  SPORTS
+  MUSICAL
+}
+
+// One row per ISO-anchored Friday->Thursday release week.
+model Week {
+  id            String   @id @default(cuid())
+  weekStartDate DateTime // Friday, 00:00
+  weekEndDate   DateTime // following Thursday, 23:59
+  label         String   // e.g. "29 Aug – 4 Sep 2026"
+  isCurrent     Boolean  @default(false)
+  titles        Title[]
+
+  @@unique([weekStartDate, weekEndDate])
+  @@index([isCurrent])
+}
+
+model Title {
+  id                      String            @id @default(cuid())
+  title                   String
+  type                    TitleType
+  releaseDate             DateTime
+  weekStartDate           DateTime
+  weekEndDate             DateTime
+  week                    Week              @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  weekId                  String
+
+  originalLanguage        OriginalLanguage
+  availableAudioLanguages String[]          // e.g. ["Hindi", "English", "Marathi-Dubbed"]
+  subtitleLanguages       String[]          @default([])
+  isHindiDubbed           Boolean           @default(false)
+
+  platforms               Platform[]
+  platformDeepLinks       Json              @default("{}") // { "NETFLIX": "https://netflix.com/title/..." }
+
+  genres                  Genre[]
+  runtimeMinutes          Int? // for movies
+  totalEpisodes           Int? // for series
+  seasonNumber            Int?
+
+  posterUrl               String
+  backdropUrl             String?
+  trailerUrl              String?
+  synopsis                String            @db.Text
+
+  director                String?
+  cast                    String[]          @default([])
+
+  imdbRating              Float?
+  rottenTomatoesScore     Int?
+  internalCriticRating    Float? // 0-10, editorial score
+  communityScore          Float?            @default(0)
+  communityVotes          Int               @default(0)
+
+  editorialBadges         EditorialBadge[]
+  aiVerdictWatch          String?           @db.Text // "Why you should watch"
+  aiVerdictSkip           String?           @db.Text // "Who should skip"
+  aiVerdictGeneratedAt    DateTime?
+
+  isMustWatch             Boolean           @default(false) // hero carousel eligibility
+  heroRank                Int? // ordering within hero carousel
+
+  reviews                 Review[]
+  watchlistedBy           WatchlistItem[]
+
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+
+  @@index([weekId])
+  @@index([type])
+  @@index([originalLanguage])
+  @@index([isMustWatch])
+  @@index([releaseDate])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  title     Title    @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  titleId   String
+  userName  String
+  rating    Float // 0-10
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([titleId])
+}
+
+model WatchlistItem {
+  id        String   @id @default(cuid())
+  title     Title    @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  titleId   String
+  userToken String // anonymous device/session token (no auth system required for v1)
+  addedAt   DateTime @default(now())
+
+  @@unique([titleId, userToken])
+  @@index([userToken])
+}
