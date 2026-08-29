@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const title = getTitleById(params.id);
+  const title = await getTitleById(params.id);
   if (!title) return { title: "Title not found — OTT Weekly Pulse" };
   return {
     title: `${title.title} — OTT Weekly Pulse`,
@@ -14,8 +14,8 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   };
 }
 
-export default function TitlePage({ params }: { params: { id: string } }) {
-  const title = getTitleById(params.id);
+export default async function TitlePage({ params }: { params: { id: string } }) {
+  const title = await getTitleById(params.id);
   if (!title) return notFound();
 
   return (

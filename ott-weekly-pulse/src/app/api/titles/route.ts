@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     search: sp.get("search") ?? undefined
   };
 
-  const all = listTitlesForWeek(weekId);
+  const all = await listTitlesForWeek(weekId);
   const filtered = filterTitles(all, filters);
 
   return NextResponse.json({

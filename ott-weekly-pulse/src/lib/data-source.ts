@@ -11,6 +11,7 @@ import { MOCK_TITLES, type MockTitleSeed } from "@/data/mock-data";
 import { getAdjacentWeek, getCurrentWeekRange, getWeekLabel } from "@/lib/week";
 import type { Title, WeekMeta, TitleFilters, Review } from "@/lib/types";
 import { generateAiVerdict } from "@/lib/nvidia";
+import { fetchLiveTitlesForWeek, isLiveDataEnabled } from "@/lib/tmdb";
 
 // Deterministic id so the same (title, week) always resolves the same way.
 function makeId(title: string, weekStartIso: string): string {
@@ -101,7 +102,7 @@ function getWeekRangeById(weekId?: string) {
   };
 }
 
-export function listTitlesForWeek(weekId?: string): Title[] {
+export function listTitlesForWeekMock(weekId?: string): Title[] {
   const { weekStartDate, weekEndDate } = getWeekRangeById(weekId);
   const meta = listWeeks().find((w) => w.id === (weekId ?? listWeeks().find((x) => x.isCurrent)?.id));
   const isFutureWeek = meta ? new Date(meta.weekStartDate) > new Date() && !meta.isCurrent : false;
@@ -113,9 +114,40 @@ export function listTitlesForWeek(weekId?: string): Title[] {
   return seeds.map((seed) => seedToTitle(seed, weekStartDate, weekEndDate));
 }
 
-export function getTitleById(id: string): Title | undefined {
+// In-process cache so repeated requests within the same warm serverless
+// instance don't redundantly re-fetch+reassemble the live catalog; the
+// underlying TMDB HTTP calls are also cached by Vercel's persistent Data
+// Cache (see the `next: { revalidate }` option in src/lib/tmdb.ts), so this
+// is a secondary, best-effort optimization rather than the source of truth.
+const LIVE_CACHE = new Map<string, { data: Title[]; expiresAt: number }>();
+const LIVE_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+/**
+ * The catalog for a given week. When TMDB_API_KEY is configured, this
+ * fetches a live, auto-refreshing feed of whatever is currently popular and
+ * actively streaming in India (see src/lib/tmdb.ts for exactly how "this
+ * week" is approximated). Falls back to the last manually-curated snapshot
+ * in src/data/mock-data.ts if no key is set, or if TMDB is unreachable.
+ */
+export async function listTitlesForWeek(weekId?: string): Promise<Title[]> {
+  if (!isLiveDataEnabled()) return listTitlesForWeekMock(weekId);
+
+  const { weekStartDate, weekEndDate } = getWeekRangeById(weekId);
+  const resolvedWeekId = weekId ?? listWeeks().find((w) => w.isCurrent)?.id ?? weekStartDate.toISOString().slice(0, 10);
+
+  const cached = LIVE_CACHE.get(resolvedWeekId);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  const live = await fetchLiveTitlesForWeek(weekStartDate, weekEndDate, resolvedWeekId);
+  if (!live || live.length === 0) return listTitlesForWeekMock(weekId);
+
+  LIVE_CACHE.set(resolvedWeekId, { data: live, expiresAt: Date.now() + LIVE_CACHE_TTL_MS });
+  return live;
+}
+
+export async function getTitleById(id: string): Promise<Title | undefined> {
   for (const week of listWeeks()) {
-    const titles = listTitlesForWeek(week.id);
+    const titles = await listTitlesForWeek(week.id);
     const found = titles.find((t) => t.id === id);
     if (found) return found;
   }
@@ -134,7 +166,10 @@ export function filterTitles(titles: Title[], filters: TitleFilters): Title[] {
         return false;
       }
     }
-    if (filters.minRating && (t.imdbRating ?? 0) < filters.minRating) return false;
+    if (filters.minRating) {
+      const effectiveRating = t.imdbRating ?? t.internalCriticRating ?? t.communityScore ?? 0;
+      if (effectiveRating < filters.minRating) return false;
+    }
     if (filters.search) {
       const q = filters.search.toLowerCase();
       const haystack = `${t.title} ${t.director ?? ""} ${t.cast.join(" ")} ${t.synopsis}`.toLowerCase();

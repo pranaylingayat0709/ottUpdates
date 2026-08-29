@@ -13,7 +13,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const title = getTitleById(params.id);
+  const title = await getTitleById(params.id);
   if (!title) return NextResponse.json({ error: "Title not found" }, { status: 404 });
 
   const body = await req.json().catch(() => null);

@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   const parsed = BodySchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "titleId is required" }, { status: 400 });
 
-  const title = getTitleById(parsed.data.titleId);
+  const title = await getTitleById(parsed.data.titleId);
   if (!title) return NextResponse.json({ error: "Title not found" }, { status: 404 });
 
   const verdict = await getOrGenerateVerdict(title);

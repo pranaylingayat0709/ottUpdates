@@ -4,6 +4,7 @@ export type Platform =
   | "NETFLIX"
   | "PRIME_VIDEO"
   | "DISNEY_HOTSTAR"
+  | "JIOHOTSTAR"
   | "JIOCINEMA"
   | "SONYLIV"
   | "ZEE5"
@@ -94,6 +95,7 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
   NETFLIX: "Netflix",
   PRIME_VIDEO: "Prime Video",
   DISNEY_HOTSTAR: "Disney+ Hotstar",
+  JIOHOTSTAR: "JioHotstar",
   JIOCINEMA: "JioCinema",
   SONYLIV: "SonyLIV",
   ZEE5: "ZEE5",
@@ -107,6 +109,7 @@ export const PLATFORM_COLORS: Record<Platform, string> = {
   NETFLIX: "#E50914",
   PRIME_VIDEO: "#00A8E1",
   DISNEY_HOTSTAR: "#1F80E0",
+  JIOHOTSTAR: "#1A73E8",
   JIOCINEMA: "#8C1AF6",
   SONYLIV: "#00A1E0",
   ZEE5: "#8353E2",

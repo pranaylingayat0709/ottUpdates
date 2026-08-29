@@ -76,14 +76,27 @@ src/
   data/mock-data.ts        # realistic fictional sample catalog (EN/HI/MR)
 ```
 
-## Automated data-fetching strategy (for production)
+## Automatic weekly updates (live data)
 
-The seed script and mock data are meant to be replaced by a real weekly ingestion job. Two supported approaches:
+The app now supports two data modes, controlled by a single environment variable:
 
-1. **TMDB + JustWatch:** a scheduled job (cron / Vercel Cron / Supabase Edge Function) hits TMDB's `/discover/movie` and `/discover/tv` filtered to the current Friday–Thursday window and India region, cross-references JustWatch for platform availability, and upserts into the `Title` table.
-2. **LLM-agent crawl:** a weekly job prompts an LLM (e.g. via the same NVIDIA NIM client in `src/lib/nvidia.ts`) with a structured-output request to summarize that week's confirmed OTT release slate from a curated set of entertainment-news sources, validated against a Zod schema before insert.
+**Without `TMDB_API_KEY`:** uses the last manually-curated snapshot in `src/data/mock-data.ts` — static until someone edits that file.
 
-Either way, the ingestion job should also call `generateAiVerdict()` once per new title at insert time and persist `aiVerdictWatch` / `aiVerdictSkip`, so the live "Quick AI Verdict" card reads from the DB instantly instead of calling NIM on every page view (the current on-demand call + in-memory cache in `getOrGenerateVerdict()` is the demo-mode equivalent of that).
+**With `TMDB_API_KEY` set:** the app queries [TMDB](https://www.themoviedb.org/) (a free, public movie/TV database) live, every time the cache window expires — **no manual updates, no re-uploading files, no asking me to refresh it.** Specifically:
+
+1. `src/lib/tmdb.ts` calls TMDB's `/discover/movie` and `/discover/tv` endpoints filtered to `watch_region=IN` + `with_watch_monetization_types=flatrate` (i.e., "actually streaming on a subscription platform in India right now"), sorted by popularity, biased toward the last ~3 weeks.
+2. For each result, it calls TMDB's `/watch/providers` endpoint to find which of Netflix/Prime Video/JioHotstar/SonyLIV/ZEE5/Apple TV+/etc. actually carry it in India, and drops anything not on a platform this app tracks.
+3. Results are cached via Next.js's `fetch(..., { next: { revalidate: 21600 } })` — Vercel's persistent Data Cache — so the catalog refreshes itself roughly every 6 hours without hitting TMDB on every page load.
+4. If TMDB is unreachable or returns nothing, the app **silently falls back** to the mock catalog rather than showing an error.
+
+**To turn this on:**
+1. Get a free TMDB API key: https://www.themoviedb.org/settings/api (instant approval, no waiting).
+2. Add `TMDB_API_KEY=<your key>` to Vercel's Environment Variables (or your local `.env`).
+3. Redeploy. That's it — the dashboard now reflects whatever's actually popular and streaming in India, and keeps itself current automatically.
+
+**Known limitation (be aware of this):** TMDB doesn't expose an exact "digital premiere date per platform" — that level of precision is JustWatch's specialty, and JustWatch's public API requires a partner agreement Anthropic/this project doesn't have. So instead of a strict "released exactly this Friday" filter, the live feed shows "currently popular + actively streaming + released in the last ~3 weeks" — in practice this converges on the same weekly slate, but a handful of results may be a week or two older than a strict Friday-to-Thursday cutoff would show. `isHindiDubbed` and per-title cast/rating precision are also approximated from what TMDB exposes (no IMDb/Rotten Tomatoes scores — the UI shows TMDB's own vote average as the "internal critic rating" instead, and marks review counts as "New" until real users vote). If you later get JustWatch partner API access, swap `fetchLiveTitlesForWeek()` in `tmdb.ts` for a JustWatch-backed version for exact per-platform premiere dates.
+
+
 
 ## Notes
 
