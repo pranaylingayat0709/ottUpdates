@@ -140,7 +140,7 @@ async function listWeeklyTitles(weekStart: Date, weekEnd: Date): Promise<WmListI
     release_date_start: fmt(recentFrom),
     release_date_end: fmt(weekEnd),
     sort_by: "relevance_desc",
-    limit: "24"
+    limit: "60"
   });
   return data?.titles ?? [];
 }

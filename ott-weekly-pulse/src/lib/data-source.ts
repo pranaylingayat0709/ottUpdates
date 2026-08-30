@@ -137,13 +137,23 @@ const LIVE_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 //      requirement ("majorly Hindi and Marathi") is met unconditionally,
 //      not contingent on how any particular live API happens to rank
 //      regional content on a given day.
-function prioritizeIndianLanguages(titles: Title[], weekStart: Date, weekEnd: Date, maxCount = 16): Title[] {
+// Ensures Hindi/Marathi content isn't crowded out by globally-popular
+// Hollywood titles in the DISPLAY ORDER. Important: this must never
+// reduce the total number of real titles returned — it only reorders
+// (Hindi/Marathi first) and, if the live source came back with very few
+// Hindi/Marathi titles, blends in extra curated ones. All other titles
+// the live source found are preserved and shown, just ordered after the
+// Indian-language ones.
+function prioritizeIndianLanguages(titles: Title[], weekStart: Date, weekEnd: Date): Title[] {
   const isIndian = (t: Title) => t.originalLanguage === "HINDI" || t.originalLanguage === "MARATHI";
   const liveIndian = titles.filter(isIndian);
   const liveOthers = titles.filter((t) => !isIndian(t));
 
-  const targetIndian = Math.ceil(maxCount * 0.6);
-  const gap = targetIndian - liveIndian.length;
+  // Only supplement with curated titles if the live source found very
+  // little Indian content — and even then, this ADDS titles, it never
+  // removes any of the real ones the live source returned.
+  const minimumIndian = 6;
+  const gap = minimumIndian - liveIndian.length;
 
   let indianPool = liveIndian;
   if (gap > 0) {
@@ -155,8 +165,8 @@ function prioritizeIndianLanguages(titles: Title[], weekStart: Date, weekEnd: Da
     indianPool = [...liveIndian, ...supplemented];
   }
 
-  const remainingSlots = Math.max(maxCount - indianPool.length, Math.floor(maxCount * 0.3));
-  return [...indianPool.slice(0, targetIndian + Math.max(gap, 0)), ...liveOthers.slice(0, remainingSlots)];
+  // Every real title is kept — Hindi/Marathi just get sorted to the front.
+  return [...indianPool, ...liveOthers];
 }
 
 /**

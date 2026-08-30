@@ -223,7 +223,7 @@ async function discoverMovies(weekStart: Date, weekEnd: Date): Promise<TmdbMovie
       merged.push(item);
     }
   }
-  return merged.slice(0, 24);
+  return merged.slice(0, 60);
 }
 
 async function discoverTv(weekStart: Date, weekEnd: Date): Promise<TmdbTvResult[]> {
@@ -254,7 +254,7 @@ async function discoverTv(weekStart: Date, weekEnd: Date): Promise<TmdbTvResult[
       merged.push(item);
     }
   }
-  return merged.slice(0, 24);
+  return merged.slice(0, 60);
 }
 
 function pickGenres(ids: number[], map: Record<number, Genre>): Genre[] {
