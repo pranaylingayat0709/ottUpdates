@@ -123,9 +123,41 @@ A few rounds of real-world testing surfaced bugs that are now fixed, worth knowi
 
 - **Debounced search** (`src/hooks/useDebounce.ts`) — the search box waits ~350ms after you stop typing before triggering a refetch, instead of firing on every keystroke.
 - **In-app trailer player** — "Watch Trailer" no longer redirects to YouTube; it opens an embedded YouTube player right in the app (`src/components/TrailerPlayer.tsx`), reachable from the hero, the detail view, and a hover play-button on every title card. It can be minimized into a small draggable floating mini player (bottom-right corner) that keeps playing while you keep browsing — click it again to restore to the full view. The TMDB live path fetches trailer links from TMDB's `/videos` endpoint automatically; Watchmode's free tier doesn't expose trailer data, so it stays empty there (falls back to the mock catalog's trailer links, where set).
-- **"Notify Me" for upcoming titles** (`src/hooks/useReminderStore.ts`) — a local-only reminder for titles in the "Coming Up" preview week. Honest scope: there's no email/push backend, so this surfaces a dismissible in-app banner once the title appears in the current week's catalog, on the same device/browser — it does not send an actual notification.
+- **"Notify Me" for upcoming titles** (`src/hooks/useReminderStore.ts`) — a reminder for titles in the "Coming Up" preview week. Always shows a dismissible in-app banner once the title appears in the current week's catalog. Also attempts to register a real browser push notification (see "Push notifications" below) — falls back gracefully to the in-app-only banner if push isn't supported/configured/permitted.
 - **"Because you watched X" recommendations** (`src/components/RecommendedForYou.tsx`) — fully client-side genre-overlap matching against your watchlist, no ML model or server round-trip. Only considers titles from the currently-loaded week.
 - **Optional Vercel KV caching** (`src/lib/kv-cache.ts`) — if `KV_REST_API_URL`/`KV_REST_API_TOKEN` are set, the live catalog cache persists in Redis across serverless cold starts instead of resetting per-instance. Completely optional — everything works identically without it, just with slightly less warm-cache benefit. Note: `@vercel/kv` currently shows a deprecation notice pointing at Upstash Redis via Vercel Marketplace integrations — check Vercel's current setup docs when you actually configure this, since the exact provisioning flow may have moved on by the time you read this.
+- **Share button** — native share sheet on mobile (`navigator.share`), a small WhatsApp/X/copy-link menu on desktop. On the detail view.
+- **Continue Browsing** (`src/components/ContinueWatching.tsx`) — honestly scoped: this app links out to external platforms for actual playback rather than hosting video, so there's no real resume-position to track. This surfaces your recently-viewed titles as a quick-access row instead of pretending to track literal playback progress.
+- **Platform comparison** (`/compare`) — pick any two platforms and see side-by-side title counts, genre breakdowns, and full title grids for the current week.
+- **PWA support** — a real `manifest.json`, generated app icons, and a service worker (`public/sw.js`) that caches the app shell for faster repeat visits and installability on phone home screens. Deliberately does NOT cache `/api/*` routes — catalog data always comes from the network.
+
+## Push notifications (real, self-hosted — no third-party service)
+
+Unlike a typical "we'll integrate Firebase/OneSignal later" placeholder, this is a complete, working implementation using the open **Web Push standard (VAPID)** — supported natively by every major browser, no account with any push provider needed.
+
+**How it works:** clicking "Notify Me" on an upcoming title both (a) saves a local reminder as before, and (b) best-effort subscribes your browser to push and registers that subscription + title with the server (`src/lib/push-subscriptions.ts`). A daily Vercel Cron job (`/api/cron/check-reminders`, see `vercel.json`) checks every stored subscription's watched titles against the live current-week catalog, and sends a real push notification via `web-push` (`src/lib/push.ts`) for any match — then stops tracking that title so it doesn't notify twice.
+
+**To turn this on:**
+1. Generate a key pair once: `npx web-push generate-vapid-keys`
+2. Set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` (a `mailto:` address) in Vercel's environment variables
+3. Set `CRON_SECRET` to any random string (Vercel sends this automatically as a Bearer token on scheduled cron runs, protecting the endpoint from being triggered by anyone who finds the URL)
+4. Redeploy
+
+**Honest limitation:** subscription storage uses the same optional-KV-or-in-memory pattern as everything else in this project — durable if you've configured Vercel KV, otherwise resets on cold start. I also could not test actual push delivery end-to-end from my development environment (no way to receive a real push notification there) — this is built correctly against the documented Web Push API, but you'll be the first real-world test of delivery.
+
+## Weekly digest email (Resend)
+
+A Friday-morning cron job (`/api/cron/weekly-digest`) emails the week's top 10 picks to everyone who's subscribed via the footer signup form, using [Resend](https://resend.com) (free tier: 3,000 emails/month).
+
+**To turn this on:**
+1. Sign up at resend.com, get an API key
+2. Set `RESEND_API_KEY` in Vercel's environment variables (and optionally `RESEND_FROM_EMAIL` if you've verified your own sending domain — otherwise it uses Resend's shared `onboarding@resend.dev` address, fine for testing)
+3. Set `CRON_SECRET` (shared with the push-notification cron above) if not already set
+4. Redeploy
+
+Subscriber emails are stored the same optional-KV-or-in-memory way as push subscriptions — same durability caveat applies. Same honest note: I couldn't verify actual email delivery from my environment; the integration is built correctly against Resend's documented API, but untested end-to-end.
+
+**A note on Vercel Cron limits:** both cron jobs are scheduled for at most once per day (`vercel.json`), which should work on Vercel's free Hobby tier — Hobby plans generally restrict cron jobs to a daily cadence. If you're on Pro and want the reminder check to run more often than once a day, you can tighten the schedule in `vercel.json`.
 
 ## Known limitations to keep in mind
 

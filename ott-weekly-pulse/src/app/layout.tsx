@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -6,6 +7,8 @@ import { LanguageProvider } from "@/components/LanguageProvider";
 import { SiteHeader } from "@/components/SiteHeader";
 import { FooterTagline } from "@/components/FooterTagline";
 import { TrailerPlayer } from "@/components/TrailerPlayer";
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
+import { NewsletterSignup } from "@/components/NewsletterSignup";
 
 // Using the system font stack (configured in tailwind.config.ts / globals.css)
 // instead of next/font/google so the app builds and renders instantly in
@@ -17,6 +20,12 @@ export const metadata: Metadata = {
   description:
     "Curated weekly movie and web series recommendations across Netflix, Prime Video, JioHotstar, SonyLIV, ZEE5 and more — Hindi, Marathi & English, every Friday.",
   keywords: ["OTT", "weekly releases", "movies", "web series", "Bollywood", "Marathi", "Netflix", "Prime Video", "JioHotstar", "reviews"],
+  manifest: "/manifest.json",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "OTT Pulse" },
+  icons: {
+    icon: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }]
+  }
 };
 
 export const viewport = { themeColor: "#0a0a0f" };
@@ -48,12 +57,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <SiteHeader />
               <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 lg:px-8">{children}</main>
               <footer className="border-t py-8 text-center text-xs text-muted-foreground" style={{ borderColor: "hsl(var(--foreground) / 0.06)" }}>
+                <div className="mx-auto mb-6 max-w-sm px-4">
+                  <NewsletterSignup />
+                </div>
                 <FooterTagline />
               </footer>
               <TrailerPlayer />
+              <ServiceWorkerRegister />
             </Providers>
           </LanguageProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );

@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import { useEffect } from "react";
 import { Bookmark, BellRing, Clapperboard, ExternalLink, Film, Languages, Tv2 } from "lucide-react";
 import type { Title } from "@/lib/types";
 import { PLATFORM_LABELS, GENRE_LABELS } from "@/lib/types";
@@ -11,9 +12,12 @@ import { ReviewsSection } from "@/components/ReviewsSection";
 import { Button } from "@/components/ui/button";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { useReminderStore } from "@/hooks/useReminderStore";
+import { useRecentlyViewedStore } from "@/hooks/useRecentlyViewedStore";
 import { useI18n } from "@/components/LanguageProvider";
 import { useTrailerPlayer } from "@/hooks/useTrailerPlayer";
 import { extractYouTubeId } from "@/lib/youtube";
+import { subscribeForTitle } from "@/hooks/usePushNotifications";
+import { ShareButton } from "@/components/ShareButton";
 import { format } from "date-fns";
 
 export function TitleDetailContent({ title }: { title: Title }) {
@@ -23,8 +27,14 @@ export function TitleDetailContent({ title }: { title: Title }) {
   const playTrailer = useTrailerPlayer((s) => s.play);
   const toggleReminder = useReminderStore((s) => s.toggle);
   const { t } = useI18n();
+  const recordView = useRecentlyViewedStore((s) => s.record);
 
   const isUpcoming = new Date(title.releaseDate) > new Date();
+
+  useEffect(() => {
+    if (!isUpcoming) recordView({ id: title.id, title: title.title, posterUrl: title.posterUrl });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title.id]);
 
   return (
     <div>
@@ -123,7 +133,13 @@ export function TitleDetailContent({ title }: { title: Title }) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => toggleReminder({ id: title.id, title: title.title })}
+                onClick={() => {
+                  toggleReminder({ id: title.id, title: title.title });
+                  // Best-effort: also try to register a real browser push
+                  // notification, in addition to the in-app banner. Fails
+                  // silently if push isn't supported/configured/permitted.
+                  if (!reminded) subscribeForTitle(title.title);
+                }}
                 className={cn(reminded && "border-accent/50 text-accent")}
               >
                 <BellRing className={cn("h-3.5 w-3.5", reminded && "fill-current")} />
@@ -139,6 +155,7 @@ export function TitleDetailContent({ title }: { title: Title }) {
                 <Bookmark className={cn("h-3.5 w-3.5", saved && "fill-current")} /> {saved ? t("title.saved") : t("title.addToWatchlist")}
               </Button>
             )}
+            <ShareButton title={title.title} url={typeof window !== "undefined" ? `${window.location.origin}/title/${title.id}` : `/title/${title.id}`} />
           </div>
         </div>
 

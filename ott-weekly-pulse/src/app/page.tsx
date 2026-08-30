@@ -9,6 +9,7 @@ import { FilterBar } from "@/components/FilterBar";
 import { ReleaseCalendar, CatalogSection } from "@/components/ReleaseCalendar";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RecommendedForYou } from "@/components/RecommendedForYou";
+import { ContinueWatching } from "@/components/ContinueWatching";
 import { ReminderBanner } from "@/components/ReminderBanner";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { useI18n } from "@/components/LanguageProvider";
@@ -93,6 +94,7 @@ export default function DashboardPage() {
 
           {!isLoading && !hasActiveFilters && (
             <>
+              <ContinueWatching />
               <ErrorBoundary fallbackLabel="">
                 <RecommendedForYou titles={titles} />
               </ErrorBoundary>

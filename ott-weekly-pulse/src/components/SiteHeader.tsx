@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Bookmark, Clapperboard } from "lucide-react";
+import { Bookmark, Clapperboard, Scale } from "lucide-react";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { useState } from "react";
 import { WatchlistDrawer } from "@/components/WatchlistDrawer";
@@ -34,6 +34,9 @@ export function SiteHeader() {
         </Link>
 
         <div className="flex items-center gap-2">
+          <Link href="/compare" className="chip hidden sm:inline-flex">
+            <Scale className="h-3.5 w-3.5" /> Compare
+          </Link>
           <button
             onClick={() => setDrawerOpen(true)}
             className="chip relative"
