@@ -48,6 +48,7 @@ interface WmDetails {
   critic_score?: number;
   poster?: string;
   backdrop?: string;
+  trailer?: string;
   network_names?: string[];
   original_language?: string;
   season_count?: number;
@@ -204,7 +205,7 @@ async function toTitle(item: WmListItem, weekStart: Date, weekEnd: Date, weekId:
     seasonNumber: details.season_count ?? null,
     posterUrl: details.poster || details.backdrop || NO_POSTER_PLACEHOLDER,
     backdropUrl: details.backdrop ?? null,
-    trailerUrl: null,
+    trailerUrl: details.trailer || null,
     synopsis: details.plot_overview || "Synopsis not available yet.",
     director: null,
     cast: [],

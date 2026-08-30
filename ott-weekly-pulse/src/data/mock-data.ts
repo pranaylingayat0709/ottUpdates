@@ -77,10 +77,11 @@ export const MOCK_TITLES: MockTitleSeed[] = [
     runtimeMinutes: 134,
     posterUrl: tmdbImg("/bPtRt3ajQ0EkyeQ1O6iJwAIi9Py.jpg"),
     backdropUrl: tmdbImg("/bPtRt3ajQ0EkyeQ1O6iJwAIi9Py.jpg", "w1280"),
+    trailerUrl: "https://www.youtube.com/watch?v=YP1uSAggr6Y",
     synopsis:
       "Set within the same expansive spy universe as War and Pathaan, this installment follows a fierce young operative thrown into her first high-stakes mission, forced to prove herself inside a shadowy intelligence agency where trust is a liability.",
     director: "Shiv Rawail",
-    cast: ["Alia Bhatt", "Sharvari", "Bobby Deol"],
+    cast: ["Alia Bhatt", "Sharvari", "Bobby Deol", "Anil Kapoor"],
     internalCriticRating: 5.2,
     communityScore: 0,
     communityVotes: 0,
