@@ -10,8 +10,11 @@ import { EditorialBadgePill } from "@/components/EditorialBadgePill";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { TitleModal } from "@/components/TitleModal";
 
+const FALLBACK_POSTER = "https://picsum.photos/seed/owp-fallback/500/750";
+
 export function TitleCard({ title, className }: { title: Title; className?: string }) {
   const [open, setOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const saved = useWatchlistStore((s) => s.isSaved(title.id));
   const toggle = useWatchlistStore((s) => s.toggle);
 
@@ -26,11 +29,12 @@ export function TitleCard({ title, className }: { title: Title; className?: stri
       >
         <div className="relative aspect-[2/3] w-full overflow-hidden">
           <Image
-            src={title.posterUrl}
+            src={imgError || !title.posterUrl ? FALLBACK_POSTER : title.posterUrl}
             alt={title.title}
             fill
             sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 200px"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
+            onError={() => setImgError(true)}
           />
           <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
 
@@ -57,9 +61,17 @@ export function TitleCard({ title, className }: { title: Title; className?: stri
           <div className="absolute inset-x-0 bottom-0 space-y-1 p-3">
             <p className="line-clamp-1 text-sm font-bold text-white">{title.title}</p>
             <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-white/70">
-              <span>{title.type === "MOVIE" ? formatRuntime(title.runtimeMinutes) : `${title.totalEpisodes} eps`}</span>
+              <span>
+                {title.type === "MOVIE"
+                  ? formatRuntime(title.runtimeMinutes)
+                  : title.totalEpisodes
+                    ? `${title.totalEpisodes} eps`
+                    : title.type === "SERIES"
+                      ? "Series"
+                      : "Documentary"}
+              </span>
               <span>·</span>
-              <span>{PLATFORM_LABELS[title.platforms[0]]}</span>
+              <span>{PLATFORM_LABELS[title.platforms[0]] ?? title.platforms[0] ?? ""}</span>
               {title.imdbRating && (
                 <>
                   <span>·</span>

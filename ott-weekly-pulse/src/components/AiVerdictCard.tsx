@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/LanguageProvider";
 import { Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
 
 export function AiVerdictCard({ titleId, fallbackWatch, fallbackSkip }: { titleId: string; fallbackWatch?: string | null; fallbackSkip?: string | null }) {
+  const { t } = useI18n();
   const [verdict, setVerdict] = useState<{ watch: string; skip: string } | null>(
     fallbackWatch && fallbackSkip ? { watch: fallbackWatch, skip: fallbackSkip } : null
   );
@@ -35,7 +37,7 @@ export function AiVerdictCard({ titleId, fallbackWatch, fallbackSkip }: { titleI
     <div className="glass-card space-y-3 p-4">
       <div className="flex items-center gap-2">
         <Sparkles className="h-4 w-4 text-accent" />
-        <h4 className="text-sm font-bold">Quick AI Verdict</h4>
+        <h4 className="text-sm font-bold">{t("aiVerdict.title")}</h4>
         <span className="chip !py-0.5 text-[10px]">via NVIDIA NIM</span>
       </div>
 

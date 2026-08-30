@@ -199,6 +199,50 @@ export const MOCK_TITLES: MockTitleSeed[] = [
     editorialBadges: ["FAMILY_WATCH"],
     isMustWatch: false
   },
+  {
+    title: "Anupamaa",
+    type: "SERIES",
+    dayOffset: 0,
+    originalLanguage: "HINDI",
+    availableAudioLanguages: ["Hindi"],
+    subtitleLanguages: ["English", "Hindi"],
+    isHindiDubbed: false,
+    platforms: ["JIOHOTSTAR"],
+    genres: ["DRAMA", "FAMILY"],
+    totalEpisodes: 1200,
+    seasonNumber: 1,
+    posterUrl: poster("anupamaa-2026"),
+    synopsis:
+      "India's long-running primetime phenomenon continues to follow Anupamaa's journey of self-reinvention as a mother, entrepreneur, and woman rebuilding her life on her own terms after decades of putting family first.",
+    cast: ["Rupali Ganguly", "Adrija Roy", "Shivam Khajuria"],
+    internalCriticRating: 4.8,
+    communityScore: 0,
+    communityVotes: 0,
+    editorialBadges: ["TRENDING"],
+    isMustWatch: false
+  },
+  {
+    title: "Taarak Mehta Ka Ooltah Chashmah",
+    type: "SERIES",
+    dayOffset: 0,
+    originalLanguage: "HINDI",
+    availableAudioLanguages: ["Hindi"],
+    subtitleLanguages: ["English", "Hindi"],
+    isHindiDubbed: false,
+    platforms: ["SONYLIV"],
+    genres: ["COMEDY", "FAMILY"],
+    totalEpisodes: 4200,
+    seasonNumber: 1,
+    posterUrl: poster("tmkoc-2026"),
+    synopsis:
+      "India's longest-running sitcom keeps mining warm, gentle comedy from the everyday squabbles and camaraderie of the residents of Gokuldham Society — a comfort-watch staple for millions of households.",
+    cast: ["Dilip Joshi", "Amit Bhatt", "Nitish Bhaluni"],
+    internalCriticRating: 6.1,
+    communityScore: 0,
+    communityVotes: 0,
+    editorialBadges: ["FAMILY_WATCH"],
+    isMustWatch: false
+  },
 
   // ================= MARATHI =================
   {

@@ -6,7 +6,8 @@ const nextConfig = {
       { protocol: "https", hostname: "**.media-amazon.com" },
       { protocol: "https", hostname: "**.cloudfront.net" },
       { protocol: "https", hostname: "images.unsplash.com" },
-      { protocol: "https", hostname: "**" }
+      { protocol: "https", hostname: "**" },
+      { protocol: "http", hostname: "**" }
     ]
   },
   experimental: {

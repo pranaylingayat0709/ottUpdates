@@ -5,10 +5,13 @@ import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { useState } from "react";
 import { WatchlistDrawer } from "@/components/WatchlistDrawer";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { useI18n } from "@/components/LanguageProvider";
 
 export function SiteHeader() {
   const count = useWatchlistStore((s) => s.titleIds.length);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { t } = useI18n();
 
   return (
     <header
@@ -37,13 +40,14 @@ export function SiteHeader() {
             aria-label="Open watchlist"
           >
             <Bookmark className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Watchlist</span>
+            <span className="hidden sm:inline">{t("header.watchlist")}</span>
             {count > 0 && (
               <span className="ml-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">
                 {count}
               </span>
             )}
           </button>
+          <LanguageToggle />
           <ThemeToggle />
         </div>
       </div>

@@ -3,18 +3,20 @@ import useEmblaCarousel from "embla-carousel-react";
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, PlayCircle, Star } from "lucide-react";
+import { ChevronLeft, ChevronRight, Film, PlayCircle, Star } from "lucide-react";
 import type { Title } from "@/lib/types";
 import { PLATFORM_LABELS } from "@/lib/types";
 import { EditorialBadgePill } from "@/components/EditorialBadgePill";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { TitleModal } from "@/components/TitleModal";
+import { useI18n } from "@/components/LanguageProvider";
 
 export function HeroCarousel({ titles }: { titles: Title[] }) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const [selected, setSelected] = useState(0);
   const [activeTitleId, setActiveTitleId] = useState<string | null>(null);
+  const { t } = useI18n();
 
   const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi]);
   const scrollNext = useCallback(() => emblaApi?.scrollNext(), [emblaApi]);
@@ -44,7 +46,7 @@ export function HeroCarousel({ titles }: { titles: Title[] }) {
     >
       <div className="mb-4 flex items-center justify-between px-4 sm:px-6 lg:px-8">
         <h2 className="font-display text-xl font-bold tracking-tight sm:text-3xl">
-          Must-Watch <span className="text-gradient">of the Week</span>
+          {t("hero.headingPrefix")} <span className="text-gradient">{t("hero.headingSuffix")}</span>
         </h2>
         <div className="hidden gap-2 sm:flex">
           <Button variant="outline" size="icon" onClick={scrollPrev} aria-label="Previous">
@@ -63,7 +65,7 @@ export function HeroCarousel({ titles }: { titles: Title[] }) {
               <div className="relative aspect-[16/10] w-full overflow-hidden rounded-3xl border border-[hsl(var(--foreground)/0.1)] sm:aspect-[21/9]">
                 <div className={cn("absolute inset-0", selected === i && "animate-[kenburns_9s_ease-out_forwards]")}>
                   <Image
-                    src={title.backdropUrl ?? title.posterUrl}
+                    src={title.backdropUrl || title.posterUrl || "https://picsum.photos/seed/owp-fallback-bd/1280/720"}
                     alt={title.title}
                     fill
                     priority={i === 0}
@@ -105,8 +107,20 @@ export function HeroCarousel({ titles }: { titles: Title[] }) {
                       <p className="line-clamp-2 text-sm text-white/70 sm:text-base">{title.synopsis}</p>
                       <div className="mt-1 flex gap-3">
                         <Button size="lg" onClick={() => setActiveTitleId(title.id)}>
-                          <PlayCircle className="h-4 w-4" /> View Details
+                          <PlayCircle className="h-4 w-4" /> {t("title.viewDetails")}
                         </Button>
+                        {title.trailerUrl && (
+                          <Button
+                            size="lg"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(title.trailerUrl!, "_blank", "noopener,noreferrer");
+                            }}
+                          >
+                            <Film className="h-4 w-4" /> {t("title.watchTrailer")}
+                          </Button>
+                        )}
                       </div>
                     </motion.div>
                   )}

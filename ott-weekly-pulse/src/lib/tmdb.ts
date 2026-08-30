@@ -172,6 +172,20 @@ async function getDirectorAndCast(id: number, mediaType: "movie" | "tv") {
   return { director, cast };
 }
 
+interface TmdbVideosResponse {
+  results?: { site: string; type: string; key: string; official?: boolean }[];
+}
+
+async function getTrailerUrl(id: number, mediaType: "movie" | "tv"): Promise<string | null> {
+  const data = await tmdbFetch<TmdbVideosResponse>(`/${mediaType}/${id}/videos`, {});
+  const videos = data?.results ?? [];
+  const trailer =
+    videos.find((v) => v.site === "YouTube" && v.type === "Trailer" && v.official) ??
+    videos.find((v) => v.site === "YouTube" && v.type === "Trailer") ??
+    videos.find((v) => v.site === "YouTube");
+  return trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null;
+}
+
 async function discoverMovies(weekStart: Date, weekEnd: Date): Promise<TmdbMovieResult[]> {
   // Recent window biased toward this week, since TMDB has no per-platform
   // digital-premiere-date field to filter on exactly.
@@ -260,7 +274,10 @@ async function movieToTitle(m: TmdbMovieResult, weekStart: Date, weekEnd: Date, 
   const platforms = await getWatchProviders(m.id, "movie");
   if (platforms.length === 0) return null; // not actually streaming anywhere we track
 
-  const { director, cast } = await getDirectorAndCast(m.id, "movie");
+  const [{ director, cast }, trailerUrl] = await Promise.all([
+    getDirectorAndCast(m.id, "movie"),
+    getTrailerUrl(m.id, "movie")
+  ]);
   const language = LANGUAGE_MAP[m.original_language] ?? "OTHER";
 
   return {
@@ -283,7 +300,7 @@ async function movieToTitle(m: TmdbMovieResult, weekStart: Date, weekEnd: Date, 
     seasonNumber: null,
     posterUrl: poster(m.poster_path),
     backdropUrl: backdrop(m.backdrop_path) ?? null,
-    trailerUrl: null,
+    trailerUrl,
     synopsis: m.overview || "Synopsis not available yet.",
     director: director ?? null,
     cast,
@@ -302,7 +319,7 @@ async function tvToTitle(t: TmdbTvResult, weekStart: Date, weekEnd: Date, weekId
   const platforms = await getWatchProviders(t.id, "tv");
   if (platforms.length === 0) return null;
 
-  const { cast } = await getDirectorAndCast(t.id, "tv");
+  const [{ cast }, trailerUrl] = await Promise.all([getDirectorAndCast(t.id, "tv"), getTrailerUrl(t.id, "tv")]);
   const language = LANGUAGE_MAP[t.original_language] ?? "OTHER";
 
   return {
@@ -325,7 +342,7 @@ async function tvToTitle(t: TmdbTvResult, weekStart: Date, weekEnd: Date, weekId
     seasonNumber: t.seasons?.at(-1)?.season_number ?? null,
     posterUrl: poster(t.poster_path),
     backdropUrl: backdrop(t.backdrop_path) ?? null,
-    trailerUrl: null,
+    trailerUrl,
     synopsis: t.overview || "Synopsis not available yet.",
     director: null,
     cast,

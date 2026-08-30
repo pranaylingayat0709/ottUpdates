@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { Bookmark, Clapperboard, ExternalLink, Languages, Tv2 } from "lucide-react";
+import { Bookmark, BellRing, Clapperboard, ExternalLink, Film, Languages, Tv2 } from "lucide-react";
 import type { Title } from "@/lib/types";
 import { PLATFORM_LABELS, GENRE_LABELS } from "@/lib/types";
 import { cn, formatRuntime } from "@/lib/utils";
@@ -10,22 +10,29 @@ import { AiVerdictCard } from "@/components/AiVerdictCard";
 import { ReviewsSection } from "@/components/ReviewsSection";
 import { Button } from "@/components/ui/button";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
+import { useReminderStore } from "@/hooks/useReminderStore";
+import { useI18n } from "@/components/LanguageProvider";
 import { format } from "date-fns";
 
 export function TitleDetailContent({ title }: { title: Title }) {
   const saved = useWatchlistStore((s) => s.isSaved(title.id));
   const toggle = useWatchlistStore((s) => s.toggle);
+  const reminded = useReminderStore((s) => s.isReminded(title.id));
+  const toggleReminder = useReminderStore((s) => s.toggle);
+  const { t } = useI18n();
+
+  const isUpcoming = new Date(title.releaseDate) > new Date();
 
   return (
     <div>
       <div className="relative aspect-[16/8] w-full sm:aspect-[16/6]">
-        <Image src={title.backdropUrl ?? title.posterUrl} alt={title.title} fill className="object-cover" priority />
+        <Image src={title.backdropUrl || title.posterUrl || "https://picsum.photos/seed/owp-fallback-bd/1280/720"} alt={title.title} fill className="object-cover" priority />
         <div className="absolute inset-0 bg-gradient-to-t from-card via-card/60 to-transparent" />
       </div>
 
       <div className="-mt-16 flex gap-4 px-5 sm:-mt-20 sm:px-8">
         <Image
-          src={title.posterUrl}
+          src={title.posterUrl || "https://picsum.photos/seed/owp-fallback/500/750"}
           alt={title.title}
           width={120}
           height={180}
@@ -34,6 +41,7 @@ export function TitleDetailContent({ title }: { title: Title }) {
         <div className="min-w-0 flex-1 pt-2 sm:pt-16">
           <div className="mb-2 flex flex-wrap gap-1.5">
             {title.editorialBadges.map((b) => <EditorialBadgePill key={b} badge={b} />)}
+            {isUpcoming && <span className="badge-pill bg-gradient-to-r from-sky-400 to-blue-500 text-white">Coming Soon</span>}
           </div>
           <h2 className="font-display text-2xl font-extrabold leading-tight sm:text-3xl">{title.title}</h2>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -47,9 +55,11 @@ export function TitleDetailContent({ title }: { title: Title }) {
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span className="chip"><Clapperboard className="h-3 w-3" /> {title.type === "MOVIE" ? "Movie" : title.type === "SERIES" ? "Web Series" : "Documentary"}</span>
           <span className="chip">
-            {title.type === "MOVIE" ? formatRuntime(title.runtimeMinutes) : `${title.totalEpisodes} episodes${title.seasonNumber ? ` · Season ${title.seasonNumber}` : ""}`}
+            {title.type === "MOVIE"
+              ? formatRuntime(title.runtimeMinutes) || "Runtime unavailable"
+              : `${title.totalEpisodes ? `${title.totalEpisodes} episodes` : "Episode count unavailable"}${title.seasonNumber ? ` · Season ${title.seasonNumber}` : ""}`}
           </span>
-          {title.genres.map((g) => <span key={g} className="chip">{GENRE_LABELS[g]}</span>)}
+          {title.genres.map((g) => <span key={g} className="chip">{GENRE_LABELS[g] ?? g}</span>)}
         </div>
 
         <RatingRow title={title} />
@@ -80,31 +90,56 @@ export function TitleDetailContent({ title }: { title: Title }) {
         <div>
           <h4 className="mb-2 flex items-center gap-2 text-sm font-bold"><Tv2 className="h-4 w-4 text-accent" /> Where to Watch</h4>
           <div className="flex flex-wrap gap-2">
-            {title.platforms.map((p) => (
+            {!isUpcoming &&
+              title.platforms.map((p) => (
+                <a
+                  key={p}
+                  href={title.platformDeepLinks[p] ?? "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-primary to-accent px-4 py-2 text-xs font-semibold text-white shadow-md shadow-primary/20 hover:opacity-90"
+                >
+                  {t("title.watchOn")} {PLATFORM_LABELS[p] ?? p} <ExternalLink className="h-3 w-3" />
+                </a>
+              ))}
+
+            {title.trailerUrl && (
               <a
-                key={p}
-                href={title.platformDeepLinks[p] ?? "#"}
+                href={title.trailerUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-primary to-accent px-4 py-2 text-xs font-semibold text-white shadow-md shadow-primary/20 hover:opacity-90"
+                className="inline-flex items-center gap-1.5 rounded-full border border-[hsl(var(--foreground)/0.12)] bg-[hsl(var(--foreground)/0.02)] px-4 py-2 text-xs font-semibold hover:bg-[hsl(var(--foreground)/0.07)]"
               >
-                Watch on {PLATFORM_LABELS[p]} <ExternalLink className="h-3 w-3" />
+                <Film className="h-3.5 w-3.5" /> {t("title.watchTrailer")}
               </a>
-            ))}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => toggle(title.id)}
-              className={cn(saved && "border-accent/50 text-accent")}
-            >
-              <Bookmark className={cn("h-3.5 w-3.5", saved && "fill-current")} /> {saved ? "Saved" : "Add to Watchlist"}
-            </Button>
+            )}
+
+            {isUpcoming ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggleReminder({ id: title.id, title: title.title })}
+                className={cn(reminded && "border-accent/50 text-accent")}
+              >
+                <BellRing className={cn("h-3.5 w-3.5", reminded && "fill-current")} />
+                {reminded ? t("title.reminderSet") : t("title.notifyMe")}
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggle(title.id)}
+                className={cn(saved && "border-accent/50 text-accent")}
+              >
+                <Bookmark className={cn("h-3.5 w-3.5", saved && "fill-current")} /> {saved ? t("title.saved") : t("title.addToWatchlist")}
+              </Button>
+            )}
           </div>
         </div>
 
-        <AiVerdictCard titleId={title.id} fallbackWatch={title.aiVerdictWatch} fallbackSkip={title.aiVerdictSkip} />
+        {!isUpcoming && <AiVerdictCard titleId={title.id} fallbackWatch={title.aiVerdictWatch} fallbackSkip={title.aiVerdictSkip} />}
 
-        <ReviewsSection titleId={title.id} />
+        {!isUpcoming && <ReviewsSection titleId={title.id} />}
       </div>
     </div>
   );

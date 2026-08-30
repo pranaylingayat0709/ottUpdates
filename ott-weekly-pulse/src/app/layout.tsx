@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { LanguageProvider } from "@/components/LanguageProvider";
 import { SiteHeader } from "@/components/SiteHeader";
+import { FooterTagline } from "@/components/FooterTagline";
 
 // Using the system font stack (configured in tailwind.config.ts / globals.css)
 // instead of next/font/google so the app builds and renders instantly in
@@ -40,14 +42,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen font-sans">
         <ThemeProvider>
-          <Providers>
-            <SiteHeader />
-            <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 lg:px-8">{children}</main>
-            <footer className="border-t py-8 text-center text-xs text-muted-foreground" style={{ borderColor: "hsl(var(--foreground) / 0.06)" }}>
-              OTT Weekly Pulse · Fresh Friday–Thursday picks in Hindi, Marathi & English ·{" "}
-              <span className="text-foreground/70">Built with Next.js, Tailwind & NVIDIA NIM</span>
-            </footer>
-          </Providers>
+          <LanguageProvider>
+            <Providers>
+              <SiteHeader />
+              <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 lg:px-8">{children}</main>
+              <footer className="border-t py-8 text-center text-xs text-muted-foreground" style={{ borderColor: "hsl(var(--foreground) / 0.06)" }}>
+                <FooterTagline />
+              </footer>
+            </Providers>
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>

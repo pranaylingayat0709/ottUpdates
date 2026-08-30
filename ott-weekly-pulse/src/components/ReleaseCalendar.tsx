@@ -5,7 +5,10 @@ import { motion } from "framer-motion";
 import type { Title } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { TitleCard } from "@/components/TitleCard";
-import { CalendarRange, Clapperboard, Tv, BookOpen } from "lucide-react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/LanguageProvider";
+import { CalendarRange, Clapperboard, Tv, BookOpen, ChevronDown } from "lucide-react";
 
 const gridVariants = {
   hidden: {},
@@ -15,6 +18,8 @@ const cardVariants = {
   hidden: { opacity: 0, y: 18 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } }
 };
+
+const PAGE_SIZE = 10;
 
 export function CatalogSection({
   title,
@@ -27,13 +32,18 @@ export function CatalogSection({
   titles: Title[];
   emptyLabel: string;
 }) {
+  const { t } = useI18n();
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
   if (titles.length === 0) return null;
+  const shown = titles.slice(0, visibleCount);
+  const hasMore = titles.length > visibleCount;
+
   return (
     <motion.section
       className="mb-12"
       initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: "-80px" }}
+      animate="visible"
       variants={gridVariants}
     >
       <div className="mb-4 flex items-center justify-between">
@@ -43,18 +53,28 @@ export function CatalogSection({
         <span className="chip !py-1 text-[11px]">{titles.length} title{titles.length !== 1 ? "s" : ""}</span>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {titles.map((t) => (
+        {shown.map((t) => (
           <motion.div key={t.id} variants={cardVariants}>
-            <TitleCard title={t} />
+            <ErrorBoundary fallbackLabel="Couldn't load this title.">
+              <TitleCard title={t} />
+            </ErrorBoundary>
           </motion.div>
         ))}
       </div>
+      {hasMore && (
+        <div className="mt-5 flex justify-center">
+          <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
+            {t("loadMore")} <ChevronDown className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
       {titles.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">{emptyLabel}</p>}
     </motion.section>
   );
 }
 
 export function ReleaseCalendar({ titles }: { titles: Title[] }) {
+  const { t } = useI18n();
   const days = useMemo(
     () =>
       Array.from(new Map(titles.map((t) => [new Date(t.releaseDate).toDateString(), new Date(t.releaseDate)])).values()).sort(
@@ -73,7 +93,7 @@ export function ReleaseCalendar({ titles }: { titles: Title[] }) {
   return (
     <div>
       <h2 className="mb-4 flex items-center gap-2 font-display text-xl font-bold tracking-tight sm:text-2xl">
-        <CalendarRange className="h-5 w-5 text-accent" /> Release Calendar
+        <CalendarRange className="h-5 w-5 text-accent" /> {t("calendar.title")}
       </h2>
 
       <div className="mb-10 grid grid-cols-7 gap-1.5 sm:gap-2">
@@ -97,9 +117,9 @@ export function ReleaseCalendar({ titles }: { titles: Title[] }) {
         })}
       </div>
 
-      <CatalogSection title="New Movies This Week" icon={Clapperboard} titles={movies} emptyLabel="No movies match this filter." />
-      <CatalogSection title="New Web Series This Week" icon={Tv} titles={series} emptyLabel="No web series match this filter." />
-      <CatalogSection title="Documentaries This Week" icon={BookOpen} titles={documentaries} emptyLabel="" />
+      <CatalogSection title={t("section.movies")} icon={Clapperboard} titles={movies} emptyLabel="No movies match this filter." />
+      <CatalogSection title={t("section.webSeries")} icon={Tv} titles={series} emptyLabel="No web series match this filter." />
+      <CatalogSection title={t("section.documentaries")} icon={BookOpen} titles={documentaries} emptyLabel="" />
 
       {visible.length === 0 && (
         <p className="py-16 text-center text-sm text-muted-foreground">No releases match this filter — try another day.</p>

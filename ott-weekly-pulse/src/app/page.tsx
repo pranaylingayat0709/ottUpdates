@@ -4,8 +4,13 @@ import { motion } from "framer-motion";
 import { useTitles, useWeeks } from "@/hooks/useTitles";
 import { WeekSelector } from "@/components/WeekSelector";
 import { HeroCarousel } from "@/components/HeroCarousel";
+import { HeroSkeleton } from "@/components/HeroSkeleton";
 import { FilterBar } from "@/components/FilterBar";
 import { ReleaseCalendar, CatalogSection } from "@/components/ReleaseCalendar";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { RecommendedForYou } from "@/components/RecommendedForYou";
+import { ReminderBanner } from "@/components/ReminderBanner";
+import { useI18n } from "@/components/LanguageProvider";
 import { Clapperboard, Tv } from "lucide-react";
 import type { TitleFilters } from "@/lib/types";
 
@@ -15,6 +20,7 @@ export default function DashboardPage() {
   const { data: weeks = [] } = useWeeks();
   const [weekId, setWeekId] = useState<string | undefined>(undefined);
   const [filters, setFilters] = useState<TitleFilters>(DEFAULT_FILTERS);
+  const { t } = useI18n();
 
   const activeWeekId = weekId ?? weeks.find((w) => w.isCurrent)?.id;
   const { data, isLoading } = useTitles(activeWeekId, filters);
@@ -28,11 +34,20 @@ export default function DashboardPage() {
   const hasActiveFilters =
     filters.type !== "ALL" || filters.language !== "ALL" || filters.platform !== "ALL" || filters.genre !== "ALL" || !!filters.minRating || !!filters.search;
 
+  const isCurrentWeek = weeks.find((w) => w.id === activeWeekId)?.isCurrent ?? true;
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
       <WeekSelector weekId={activeWeekId} onChange={setWeekId} />
 
-      {!hasActiveFilters && heroTitles.length > 0 && <HeroCarousel titles={heroTitles} />}
+      {isCurrentWeek && !isLoading && <ReminderBanner currentWeekTitles={titles} />}
+
+      {isLoading && !hasActiveFilters && <HeroSkeleton />}
+      {!isLoading && !hasActiveFilters && heroTitles.length > 0 && (
+        <ErrorBoundary fallbackLabel="This week's featured picks couldn't be displayed right now.">
+          <HeroCarousel titles={heroTitles} />
+        </ErrorBoundary>
+      )}
 
       <FilterBar filters={filters} onChange={(next) => setFilters((f) => ({ ...f, ...next }))} />
 
@@ -50,24 +65,33 @@ export default function DashboardPage() {
             {data?.total ?? 0} result{(data?.total ?? 0) !== 1 ? "s" : ""}
           </p>
           <CatalogSection
-            title="Movies"
+            title={t("section.filteredMovies")}
             icon={Clapperboard}
             titles={titles.filter((t) => t.type === "MOVIE")}
             emptyLabel=""
           />
           <CatalogSection
-            title="Web Series"
+            title={t("section.filteredSeries")}
             icon={Tv}
             titles={titles.filter((t) => t.type === "SERIES")}
             emptyLabel=""
           />
           {titles.length === 0 && (
-            <p className="py-16 text-center text-sm text-muted-foreground">No titles match your filters this week — try widening your search.</p>
+            <p className="py-16 text-center text-sm text-muted-foreground">{t("noResults")}</p>
           )}
         </div>
       )}
 
-      {!isLoading && !hasActiveFilters && <ReleaseCalendar titles={titles} />}
+      {!isLoading && !hasActiveFilters && (
+        <>
+          <ErrorBoundary fallbackLabel="">
+            <RecommendedForYou titles={titles} />
+          </ErrorBoundary>
+          <ErrorBoundary fallbackLabel="This week's catalog couldn't be displayed right now — try refreshing.">
+            <ReleaseCalendar titles={titles} />
+          </ErrorBoundary>
+        </>
+      )}
     </motion.div>
   );
 }

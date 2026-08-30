@@ -13,6 +13,7 @@ import type { Title, WeekMeta, TitleFilters, Review } from "@/lib/types";
 import { generateAiVerdict } from "@/lib/nvidia";
 import { fetchLiveTitlesForWeek, isLiveDataEnabled } from "@/lib/tmdb";
 import { fetchWatchmodeTitlesForWeek, isWatchmodeEnabled } from "@/lib/watchmode";
+import { kvGet, kvSet } from "@/lib/kv-cache";
 
 // Deterministic id so the same (title, week) always resolves the same way.
 function makeId(title: string, weekStartIso: string): string {
@@ -124,18 +125,38 @@ const LIVE_CACHE = new Map<string, { data: Title[]; expiresAt: number }>();
 const LIVE_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 // Ensures Hindi/Marathi content isn't crowded out by globally-popular
-// Hollywood titles in the final displayed set — applied to whichever live
-// source returned results. Reorders so Hindi+Marathi titles are guaranteed
-// a strong majority (up to ~70% of the final list) whenever enough of them
-// were found, without fully discarding English/other content.
-function prioritizeIndianLanguages(titles: Title[], maxCount = 16): Title[] {
-  const hindiMarathi = titles.filter((t) => t.originalLanguage === "HINDI" || t.originalLanguage === "MARATHI");
-  const others = titles.filter((t) => t.originalLanguage !== "HINDI" && t.originalLanguage !== "MARATHI");
+// Hollywood titles in the final displayed set. Two layers of defense:
+//   1. Reorder so any Hindi/Marathi titles the live source DID return are
+//      guaranteed a strong position (up to ~70% of the final list).
+//   2. If the live source came back with few or zero Hindi/Marathi titles
+//      — which is possible regardless of query params, since neither
+//      Watchmode nor (in practice) TMDB reliably guarantee regional
+//      representation for a small/niche catalog — blend in real, curated
+//      Hindi/Marathi titles from the mock catalog to make up the gap.
+//      This is a hard guarantee rather than a hope: the product
+//      requirement ("majorly Hindi and Marathi") is met unconditionally,
+//      not contingent on how any particular live API happens to rank
+//      regional content on a given day.
+function prioritizeIndianLanguages(titles: Title[], weekStart: Date, weekEnd: Date, maxCount = 16): Title[] {
+  const isIndian = (t: Title) => t.originalLanguage === "HINDI" || t.originalLanguage === "MARATHI";
+  const liveIndian = titles.filter(isIndian);
+  const liveOthers = titles.filter((t) => !isIndian(t));
 
-  const targetIndian = Math.min(hindiMarathi.length, Math.ceil(maxCount * 0.7));
-  const remainingSlots = maxCount - targetIndian;
+  const targetIndian = Math.ceil(maxCount * 0.6);
+  const gap = targetIndian - liveIndian.length;
 
-  return [...hindiMarathi.slice(0, targetIndian), ...others.slice(0, remainingSlots)];
+  let indianPool = liveIndian;
+  if (gap > 0) {
+    const usedTitles = new Set(liveIndian.map((t) => t.title.toLowerCase()));
+    const mockIndianSeeds = MOCK_TITLES.filter(
+      (s) => (s.originalLanguage === "HINDI" || s.originalLanguage === "MARATHI") && !usedTitles.has(s.title.toLowerCase())
+    );
+    const supplemented = mockIndianSeeds.slice(0, gap).map((seed) => seedToTitle(seed, weekStart, weekEnd));
+    indianPool = [...liveIndian, ...supplemented];
+  }
+
+  const remainingSlots = Math.max(maxCount - indianPool.length, Math.floor(maxCount * 0.3));
+  return [...indianPool.slice(0, targetIndian + Math.max(gap, 0)), ...liveOthers.slice(0, remainingSlots)];
 }
 
 /**
@@ -153,9 +174,19 @@ export async function listTitlesForWeek(weekId?: string): Promise<Title[]> {
 
   const { weekStartDate, weekEndDate } = getWeekRangeById(weekId);
   const resolvedWeekId = weekId ?? listWeeks().find((w) => w.isCurrent)?.id ?? weekStartDate.toISOString().slice(0, 10);
+  const kvKey = `owp:titles:${resolvedWeekId}`;
 
   const cached = LIVE_CACHE.get(resolvedWeekId);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  // Vercel KV (if configured) persists across serverless instances/cold
+  // starts, unlike the in-memory Map above — checked second since the
+  // in-memory hit above is faster when available.
+  const kvCached = await kvGet<Title[]>(kvKey);
+  if (kvCached && kvCached.length > 0) {
+    LIVE_CACHE.set(resolvedWeekId, { data: kvCached, expiresAt: Date.now() + LIVE_CACHE_TTL_MS });
+    return kvCached;
+  }
 
   let live: Title[] | null = null;
   if (isWatchmodeEnabled()) {
@@ -166,8 +197,9 @@ export async function listTitlesForWeek(weekId?: string): Promise<Title[]> {
   }
   if (!live || live.length === 0) return listTitlesForWeekMock(weekId);
 
-  const balanced = prioritizeIndianLanguages(live);
+  const balanced = prioritizeIndianLanguages(live, weekStartDate, weekEndDate);
   LIVE_CACHE.set(resolvedWeekId, { data: balanced, expiresAt: Date.now() + LIVE_CACHE_TTL_MS });
+  await kvSet(kvKey, balanced, LIVE_CACHE_TTL_MS / 1000);
   return balanced;
 }
 

@@ -98,14 +98,35 @@ Either live source works the same way once configured:
 
 The app is built to surface Hindi and Marathi content prominently rather than defaulting to whatever is globally popular (which skews Hollywood):
 
-- **Live mode:** `tmdb.ts` runs separate `with_original_language=hi` and `with_original_language=mr` discover queries alongside a general query, merging results so regional titles aren't drowned out by global vote counts. `data-source.ts` then applies a `prioritizeIndianLanguages()` pass that guarantees Hindi+Marathi make up roughly 70% of the final displayed catalog whenever enough are found, regardless of which live source is active — this is a data-agnostic safety net that works even for Watchmode, which doesn't expose a documented per-language filter param.
-- **Mock/fallback mode:** `src/data/mock-data.ts` is weighted 6 Hindi + 1 Marathi + 4 English titles, sourced from real trade-press coverage of that week's actual releases (see comments in the file for sourcing).
+- **Live mode:** `tmdb.ts` runs separate `with_original_language=hi` and `with_original_language=mr` discover queries alongside a general query, merging results so regional titles aren't drowned out by global vote counts.
+- **Hard guarantee, not just a hope:** `data-source.ts`'s `prioritizeIndianLanguages()` doesn't just reorder — if the live source comes back with too few (or zero) Hindi/Marathi titles, it blends in real, curated titles from `mock-data.ts` to make up the gap. This means the "majorly Hindi and Marathi" requirement holds unconditionally, regardless of what any particular live API happens to rank highly on a given day. The curated guarantee pool currently has 10 real Hindi/Marathi titles to draw from.
+- **Mock/fallback mode:** `src/data/mock-data.ts` is weighted ~70% Hindi/Marathi, sourced from real trade-press coverage of actual releases (see comments in the file for sourcing).
 
 ## UI: Movies vs. Web Series, theming, and motion
 
-- **Separate sections:** the release calendar and filtered search results both render "Movies," "Web Series," and (when present) "Documentaries" as distinct titled sections rather than one mixed grid — see `CatalogSection` in `src/components/ReleaseCalendar.tsx`, reused on both the default and filtered views.
-- **Light/dark theme:** a full theme system lives in `src/components/ThemeProvider.tsx` + `ThemeToggle.tsx` (the sun/moon button in the header). Both themes are defined as CSS custom properties in `globals.css` (`:root` for light, `.dark` for dark) — glassmorphic panels, chips, and borders all reference these variables rather than hardcoded colors, so they render correctly in both themes. An inline script in `layout.tsx` sets the correct theme class before hydration to avoid a flash of the wrong theme on load.
-- **Motion:** Framer Motion powers scroll-triggered reveal animations on each catalog section (staggered card entrance), spring-physics hover/tap on title cards, and a smooth icon-swap transition on the theme toggle.
+- **Separate sections:** the release calendar and filtered search results both render "Movies," "Web Series," and (when present) "Documentaries" as distinct titled sections rather than one mixed grid — see `CatalogSection` in `src/components/ReleaseCalendar.tsx`, reused on both the default and filtered views. Each section paginates with a "Load More" button rather than dumping everything at once.
+- **Light/dark theme:** a full theme system lives in `src/components/ThemeProvider.tsx` + `ThemeToggle.tsx` (the sun/moon button in the header). Both themes are defined as CSS custom properties in `globals.css` (`:root` for light, `.dark` for dark) — glassmorphic panels, chips, and borders all reference these variables rather than hardcoded colors. An inline script in `layout.tsx` sets the correct theme class before hydration to avoid a flash of the wrong theme on load.
+- **Hindi/Marathi/English UI language toggle:** a separate globe/language selector in the header (not to be confused with content language) translates the interface itself — buttons, headings, filter labels — via `src/lib/translations.ts` + `LanguageProvider.tsx`. This is genuinely a different feature from the content-language filter in the FilterBar.
+- **Motion:** Framer Motion powers mount-triggered stagger animations on catalog sections, spring-physics hover/tap on title cards, a Ken Burns zoom + cross-fade on the hero carousel, and a smooth icon-swap on the theme toggle. `prefers-reduced-motion` is respected site-wide.
 
-- All sample titles, cast, and quotes in `mock-data.ts` are fictional placeholders standing in for real weekly releases.
-- Poster/backdrop images use placeholder URLs (`picsum.photos`) — replace with TMDB image URLs (`image.tmdb.org`, already whitelisted in `next.config.js`) once wired to a real feed.
+## Reliability hardening
+
+A few rounds of real-world testing surfaced bugs that are now fixed, worth knowing about if you're extending this code:
+
+- **Every title card is wrapped in a React Error Boundary** (`src/components/ErrorBoundary.tsx`) — a render error in one card (a malformed field from a live API, an unexpected null) no longer blanks the entire section, just that one card.
+- **Poster/backdrop images have fallback URLs everywhere** they're rendered, so a broken image URL from a live source degrades gracefully instead of crashing.
+- Avoid `framer-motion`'s `whileInView` for content that loads asynchronously via client-side fetch — it can get stuck at `opacity: 0` if the element is already inside the viewport the instant it mounts (a real bug this project hit once). Mount-triggered `animate` is used instead throughout.
+- Episode counts and runtimes render "unavailable"/"Series" fallback text instead of literal `null` when a live API doesn't supply that field.
+
+## Other features
+
+- **Debounced search** (`src/hooks/useDebounce.ts`) — the search box waits ~350ms after you stop typing before triggering a refetch, instead of firing on every keystroke.
+- **Trailer previews** — a "Watch Trailer" button appears wherever `trailerUrl` is populated (in the hero and the detail view). The TMDB live path fetches this from TMDB's `/videos` endpoint automatically; Watchmode's free tier doesn't expose trailer data, so it stays empty there.
+- **"Notify Me" for upcoming titles** (`src/hooks/useReminderStore.ts`) — a local-only reminder for titles in the "Coming Up" preview week. Honest scope: there's no email/push backend, so this surfaces a dismissible in-app banner once the title appears in the current week's catalog, on the same device/browser — it does not send an actual notification.
+- **"Because you watched X" recommendations** (`src/components/RecommendedForYou.tsx`) — fully client-side genre-overlap matching against your watchlist, no ML model or server round-trip. Only considers titles from the currently-loaded week.
+- **Optional Vercel KV caching** (`src/lib/kv-cache.ts`) — if `KV_REST_API_URL`/`KV_REST_API_TOKEN` are set, the live catalog cache persists in Redis across serverless cold starts instead of resetting per-instance. Completely optional — everything works identically without it, just with slightly less warm-cache benefit. Note: `@vercel/kv` currently shows a deprecation notice pointing at Upstash Redis via Vercel Marketplace integrations — check Vercel's current setup docs when you actually configure this, since the exact provisioning flow may have moved on by the time you read this.
+
+## Known limitations to keep in mind
+
+- All sample titles, cast, and ratings in `mock-data.ts` are real (sourced from trade-press coverage as of when this was written) but will go stale — a title that was "new this week" when written won't be by the time you read this. Wire up Watchmode or TMDB for auto-refreshing live data (see above) rather than relying on the static file long-term.
+- Poster/backdrop images in mock/fallback mode use placeholder URLs (`picsum.photos`) — live mode uses real TMDB poster art automatically once a TMDB key is configured.

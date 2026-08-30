@@ -5,9 +5,11 @@ import { MessageSquare, Send, Star } from "lucide-react";
 import type { Review } from "@/lib/types";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/LanguageProvider";
 
 export function ReviewsSection({ titleId }: { titleId: string }) {
   const qc = useQueryClient();
+  const { t } = useI18n();
   const [userName, setUserName] = useState("");
   const [rating, setRating] = useState(8);
   const [body, setBody] = useState("");
@@ -37,7 +39,7 @@ export function ReviewsSection({ titleId }: { titleId: string }) {
   return (
     <div className="space-y-4">
       <h4 className="flex items-center gap-2 text-sm font-bold">
-        <MessageSquare className="h-4 w-4 text-accent" /> User Reviews ({reviews.length})
+        <MessageSquare className="h-4 w-4 text-accent" /> {t("reviews.title")} ({reviews.length})
       </h4>
 
       <div className="glass-panel space-y-2 p-3">
@@ -65,7 +67,7 @@ export function ReviewsSection({ titleId }: { titleId: string }) {
         />
         <div className="flex justify-end">
           <Button size="sm" disabled={submitting} onClick={submit}>
-            <Send className="h-3.5 w-3.5" /> Post review
+            <Send className="h-3.5 w-3.5" /> {t("reviews.postReview")}
           </Button>
         </div>
       </div>
