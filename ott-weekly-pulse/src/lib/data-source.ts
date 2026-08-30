@@ -12,6 +12,7 @@ import { getAdjacentWeek, getCurrentWeekRange, getWeekLabel } from "@/lib/week";
 import type { Title, WeekMeta, TitleFilters, Review } from "@/lib/types";
 import { generateAiVerdict } from "@/lib/nvidia";
 import { fetchLiveTitlesForWeek, isLiveDataEnabled } from "@/lib/tmdb";
+import { fetchWatchmodeTitlesForWeek, isWatchmodeEnabled } from "@/lib/watchmode";
 
 // Deterministic id so the same (title, week) always resolves the same way.
 function makeId(title: string, weekStartIso: string): string {
@@ -123,14 +124,17 @@ const LIVE_CACHE = new Map<string, { data: Title[]; expiresAt: number }>();
 const LIVE_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 /**
- * The catalog for a given week. When TMDB_API_KEY is configured, this
- * fetches a live, auto-refreshing feed of whatever is currently popular and
- * actively streaming in India (see src/lib/tmdb.ts for exactly how "this
- * week" is approximated). Falls back to the last manually-curated snapshot
- * in src/data/mock-data.ts if no key is set, or if TMDB is unreachable.
+ * The catalog for a given week. Priority order:
+ *   1. Watchmode (WATCHMODE_API_KEY) — a dedicated streaming-availability
+ *      API, unaffected by TMDB's intermittent blocks in India.
+ *   2. TMDB (TMDB_API_KEY) — kept as a second live option in case you're
+ *      able to get a TMDB key (e.g. via VPN once) or deploy from a region
+ *      where it isn't blocked.
+ *   3. The manually-curated snapshot in src/data/mock-data.ts, if neither
+ *      key is set or both live sources are unreachable.
  */
 export async function listTitlesForWeek(weekId?: string): Promise<Title[]> {
-  if (!isLiveDataEnabled()) return listTitlesForWeekMock(weekId);
+  if (!isWatchmodeEnabled() && !isLiveDataEnabled()) return listTitlesForWeekMock(weekId);
 
   const { weekStartDate, weekEndDate } = getWeekRangeById(weekId);
   const resolvedWeekId = weekId ?? listWeeks().find((w) => w.isCurrent)?.id ?? weekStartDate.toISOString().slice(0, 10);
@@ -138,7 +142,13 @@ export async function listTitlesForWeek(weekId?: string): Promise<Title[]> {
   const cached = LIVE_CACHE.get(resolvedWeekId);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
 
-  const live = await fetchLiveTitlesForWeek(weekStartDate, weekEndDate, resolvedWeekId);
+  let live: Title[] | null = null;
+  if (isWatchmodeEnabled()) {
+    live = await fetchWatchmodeTitlesForWeek(weekStartDate, weekEndDate, resolvedWeekId);
+  }
+  if ((!live || live.length === 0) && isLiveDataEnabled()) {
+    live = await fetchLiveTitlesForWeek(weekStartDate, weekEndDate, resolvedWeekId);
+  }
   if (!live || live.length === 0) return listTitlesForWeekMock(weekId);
 
   LIVE_CACHE.set(resolvedWeekId, { data: live, expiresAt: Date.now() + LIVE_CACHE_TTL_MS });

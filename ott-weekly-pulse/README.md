@@ -78,27 +78,21 @@ src/
 
 ## Automatic weekly updates (live data)
 
-The app now supports two data modes, controlled by a single environment variable:
+The app supports three data modes, controlled by environment variables, tried in this order:
 
-**Without `TMDB_API_KEY`:** uses the last manually-curated snapshot in `src/data/mock-data.ts` — static until someone edits that file.
+**1. Watchmode (`WATCHMODE_API_KEY`) — recommended:** [Watchmode](https://api.watchmode.com/) is a dedicated streaming-availability API — its entire purpose is "which platform carries which title, in which country." Free tier: 2,500 requests/month, no credit card, and (unlike TMDB) no reports of being blocked in India. Sign up at https://api.watchmode.com/requestApiKey, copy the key, set `WATCHMODE_API_KEY` in Vercel's Environment Variables, redeploy.
 
-**With `TMDB_API_KEY` set:** the app queries [TMDB](https://www.themoviedb.org/) (a free, public movie/TV database) live, every time the cache window expires — **no manual updates, no re-uploading files, no asking me to refresh it.** Specifically:
+**2. TMDB (`TMDB_API_KEY`) — fallback live option:** kept as a second live source in case Watchmode's free tier runs thin, or you'd rather use TMDB's richer metadata (it has proper cast/director data that Watchmode's free tier doesn't expose). ⚠️ **Known issue for India-based developers:** TMDB has been intermittently blocked by several Indian ISPs (Jio, sometimes Airtel) for years due to an old court order — you may not be able to reach themoviedb.org to even sign up without a VPN or switching DNS to Cloudflare (1.1.1.1). This doesn't affect the *deployed app* (Vercel's servers aren't in India), only your ability to create the account.
 
-1. `src/lib/tmdb.ts` calls TMDB's `/discover/movie` and `/discover/tv` endpoints filtered to `watch_region=IN` + `with_watch_monetization_types=flatrate` (i.e., "actually streaming on a subscription platform in India right now"), sorted by popularity, biased toward the last ~3 weeks.
-2. For each result, it calls TMDB's `/watch/providers` endpoint to find which of Netflix/Prime Video/JioHotstar/SonyLIV/ZEE5/Apple TV+/etc. actually carry it in India, and drops anything not on a platform this app tracks.
-3. Results are cached via Next.js's `fetch(..., { next: { revalidate: 21600 } })` — Vercel's persistent Data Cache — so the catalog refreshes itself roughly every 6 hours without hitting TMDB on every page load.
-4. If TMDB is unreachable or returns nothing, the app **silently falls back** to the mock catalog rather than showing an error.
+**3. Mock data (no key set):** falls back to the manually-curated snapshot in `src/data/mock-data.ts` — static until someone edits that file.
 
-**To turn this on:**
-1. Get a free TMDB API key: https://www.themoviedb.org/settings/api (instant approval, no waiting).
-2. Add `TMDB_API_KEY=<your key>` to Vercel's Environment Variables (or your local `.env`).
-3. Redeploy. That's it — the dashboard now reflects whatever's actually popular and streaming in India, and keeps itself current automatically.
+Either live source works the same way once configured:
+1. Queries for whatever is currently popular and actively streaming on a subscription platform in India.
+2. Maps results into Netflix/Prime Video/JioHotstar/SonyLIV/ZEE5/Apple TV+/etc.
+3. Caches via Next.js's `fetch(..., { next: { revalidate: 21600 } })` — Vercel's persistent Data Cache — refreshing roughly every 6 hours.
+4. Silently falls back to the next source in the priority list (Watchmode → TMDB → mock) if unreachable or returns nothing.
 
-**Known limitation (be aware of this):** TMDB doesn't expose an exact "digital premiere date per platform" — that level of precision is JustWatch's specialty, and JustWatch's public API requires a partner agreement Anthropic/this project doesn't have. So instead of a strict "released exactly this Friday" filter, the live feed shows "currently popular + actively streaming + released in the last ~3 weeks" — in practice this converges on the same weekly slate, but a handful of results may be a week or two older than a strict Friday-to-Thursday cutoff would show. `isHindiDubbed` and per-title cast/rating precision are also approximated from what TMDB exposes (no IMDb/Rotten Tomatoes scores — the UI shows TMDB's own vote average as the "internal critic rating" instead, and marks review counts as "New" until real users vote). If you later get JustWatch partner API access, swap `fetchLiveTitlesForWeek()` in `tmdb.ts` for a JustWatch-backed version for exact per-platform premiere dates.
-
-
-
-## Notes
+**Known limitation shared by both live sources:** neither exposes an exact "digital premiere date per platform" — that precision is JustWatch's specialty, and JustWatch's public API requires a partner agreement this project doesn't have. So the live feed shows "currently popular + actively streaming + released in the last ~3 weeks" rather than a strict Friday-cutoff — in practice this converges on the same weekly slate, but a handful of results may be a week or two older than a strict cutoff would show. Cast/director/dub-language precision also varies by source (Watchmode's free tier omits cast/crew entirely; TMDB includes it). If you later get JustWatch partner API access, swap in a JustWatch-backed fetcher for exact per-platform premiere dates.
 
 - All sample titles, cast, and quotes in `mock-data.ts` are fictional placeholders standing in for real weekly releases.
 - Poster/backdrop images use placeholder URLs (`picsum.photos`) — replace with TMDB image URLs (`image.tmdb.org`, already whitelisted in `next.config.js`) once wired to a real feed.
