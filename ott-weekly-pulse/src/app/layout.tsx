@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import { SiteHeader } from "@/components/SiteHeader";
 import { FooterTagline } from "@/components/FooterTagline";
+import { TrailerPlayer } from "@/components/TrailerPlayer";
 
 // Using the system font stack (configured in tailwind.config.ts / globals.css)
 // instead of next/font/google so the app builds and renders instantly in
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <footer className="border-t py-8 text-center text-xs text-muted-foreground" style={{ borderColor: "hsl(var(--foreground) / 0.06)" }}>
                 <FooterTagline />
               </footer>
+              <TrailerPlayer />
             </Providers>
           </LanguageProvider>
         </ThemeProvider>

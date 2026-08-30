@@ -12,12 +12,15 @@ import { Button } from "@/components/ui/button";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { useReminderStore } from "@/hooks/useReminderStore";
 import { useI18n } from "@/components/LanguageProvider";
+import { useTrailerPlayer } from "@/hooks/useTrailerPlayer";
+import { extractYouTubeId } from "@/lib/youtube";
 import { format } from "date-fns";
 
 export function TitleDetailContent({ title }: { title: Title }) {
   const saved = useWatchlistStore((s) => s.isSaved(title.id));
   const toggle = useWatchlistStore((s) => s.toggle);
   const reminded = useReminderStore((s) => s.isReminded(title.id));
+  const playTrailer = useTrailerPlayer((s) => s.play);
   const toggleReminder = useReminderStore((s) => s.toggle);
   const { t } = useI18n();
 
@@ -104,14 +107,16 @@ export function TitleDetailContent({ title }: { title: Title }) {
               ))}
 
             {title.trailerUrl && (
-              <a
-                href={title.trailerUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => {
+                  const videoId = extractYouTubeId(title.trailerUrl!);
+                  if (videoId) playTrailer(videoId, title.title);
+                  else window.open(title.trailerUrl!, "_blank", "noopener,noreferrer");
+                }}
                 className="inline-flex items-center gap-1.5 rounded-full border border-[hsl(var(--foreground)/0.12)] bg-[hsl(var(--foreground)/0.02)] px-4 py-2 text-xs font-semibold hover:bg-[hsl(var(--foreground)/0.07)]"
               >
                 <Film className="h-3.5 w-3.5" /> {t("title.watchTrailer")}
-              </a>
+              </button>
             )}
 
             {isUpcoming ? (

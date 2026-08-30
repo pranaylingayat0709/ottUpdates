@@ -6,6 +6,7 @@ import type { Title } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { TitleCard } from "@/components/TitleCard";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/components/LanguageProvider";
 import { CalendarRange, Clapperboard, Tv, BookOpen, ChevronDown } from "lucide-react";
@@ -50,7 +51,7 @@ export function CatalogSection({
         <h2 className="flex items-center gap-2 font-display text-xl font-bold tracking-tight sm:text-2xl">
           <Icon className="h-5 w-5 text-accent" /> {title}
         </h2>
-        <span className="chip !py-1 text-[11px]">{titles.length} title{titles.length !== 1 ? "s" : ""}</span>
+        <span className="chip !py-1 text-[11px]"><AnimatedCounter value={titles.length} /> title{titles.length !== 1 ? "s" : ""}</span>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {shown.map((t) => (

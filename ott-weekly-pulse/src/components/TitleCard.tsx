@@ -2,12 +2,14 @@
 import Image from "next/image";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Bookmark, Star } from "lucide-react";
+import { Bookmark, PlayCircle, Star } from "lucide-react";
 import type { Title } from "@/lib/types";
 import { PLATFORM_LABELS } from "@/lib/types";
 import { cn, formatRuntime } from "@/lib/utils";
 import { EditorialBadgePill } from "@/components/EditorialBadgePill";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
+import { useTrailerPlayer } from "@/hooks/useTrailerPlayer";
+import { extractYouTubeId } from "@/lib/youtube";
 import { TitleModal } from "@/components/TitleModal";
 
 const FALLBACK_POSTER = "https://placehold.co/500x750/1a1a24/6a6a7a?text=Poster+Not+Available";
@@ -17,6 +19,8 @@ export function TitleCard({ title, className }: { title: Title; className?: stri
   const [imgError, setImgError] = useState(false);
   const saved = useWatchlistStore((s) => s.isSaved(title.id));
   const toggle = useWatchlistStore((s) => s.toggle);
+  const playTrailer = useTrailerPlayer((s) => s.play);
+  const trailerVideoId = title.trailerUrl ? extractYouTubeId(title.trailerUrl) : null;
 
   return (
     <>
@@ -37,6 +41,21 @@ export function TitleCard({ title, className }: { title: Title; className?: stri
             onError={() => setImgError(true)}
           />
           <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+
+          {trailerVideoId && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                playTrailer(trailerVideoId, title.title);
+              }}
+              className="absolute inset-0 z-[5] flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              aria-label="Play trailer"
+            >
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-black shadow-xl transition-transform hover:scale-110">
+                <PlayCircle className="h-7 w-7" />
+              </span>
+            </button>
+          )}
 
           <button
             onClick={(e) => {

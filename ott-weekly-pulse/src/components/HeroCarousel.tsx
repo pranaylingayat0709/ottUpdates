@@ -11,12 +11,15 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { TitleModal } from "@/components/TitleModal";
 import { useI18n } from "@/components/LanguageProvider";
+import { useTrailerPlayer } from "@/hooks/useTrailerPlayer";
+import { extractYouTubeId } from "@/lib/youtube";
 
 export function HeroCarousel({ titles }: { titles: Title[] }) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const [selected, setSelected] = useState(0);
   const [activeTitleId, setActiveTitleId] = useState<string | null>(null);
   const { t } = useI18n();
+  const playTrailer = useTrailerPlayer((s) => s.play);
 
   const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi]);
   const scrollNext = useCallback(() => emblaApi?.scrollNext(), [emblaApi]);
@@ -115,7 +118,9 @@ export function HeroCarousel({ titles }: { titles: Title[] }) {
                             variant="outline"
                             onClick={(e) => {
                               e.stopPropagation();
-                              window.open(title.trailerUrl!, "_blank", "noopener,noreferrer");
+                              const videoId = extractYouTubeId(title.trailerUrl!);
+                              if (videoId) playTrailer(videoId, title.title);
+                              else window.open(title.trailerUrl!, "_blank", "noopener,noreferrer");
                             }}
                           >
                             <Film className="h-4 w-4" /> {t("title.watchTrailer")}
