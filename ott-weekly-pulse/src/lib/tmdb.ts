@@ -121,8 +121,22 @@ const LANGUAGE_MAP: Record<string, OriginalLanguage> = {
   mr: "MARATHI"
 };
 
-function poster(path?: string | null) {
-  return path ? `${IMAGE_BASE}/w500${path}` : "https://picsum.photos/seed/no-poster/500/750";
+// A random stock photo masquerading as a poster is worse than an honest
+// "no art available" placeholder — it looks like a real (wrong) poster
+// rather than a clearly-missing one. placehold.co generates a plain
+// solid-color graphic with text, not a photo, and works reliably with
+// next/image (unlike data: URIs, which the Image optimizer doesn't
+// consistently support).
+const NO_POSTER_PLACEHOLDER = "https://placehold.co/500x750/1a1a24/6a6a7a?text=Poster+Not+Available";
+
+function poster(path?: string | null, backdropPath?: string | null) {
+  // Prefer the real poster; if TMDB has no poster art for this specific
+  // entry yet (common for very recently added titles), fall back to the
+  // backdrop image before giving up — a real backdrop crop is still real
+  // art for this title, unlike a random stock photo.
+  if (path) return `${IMAGE_BASE}/w500${path}`;
+  if (backdropPath) return `${IMAGE_BASE}/w500${backdropPath}`;
+  return NO_POSTER_PLACEHOLDER;
 }
 function backdrop(path?: string | null) {
   return path ? `${IMAGE_BASE}/w1280${path}` : undefined;
@@ -298,7 +312,7 @@ async function movieToTitle(m: TmdbMovieResult, weekStart: Date, weekEnd: Date, 
     runtimeMinutes: m.runtime ?? null,
     totalEpisodes: null,
     seasonNumber: null,
-    posterUrl: poster(m.poster_path),
+    posterUrl: poster(m.poster_path, m.backdrop_path),
     backdropUrl: backdrop(m.backdrop_path) ?? null,
     trailerUrl,
     synopsis: m.overview || "Synopsis not available yet.",
@@ -340,7 +354,7 @@ async function tvToTitle(t: TmdbTvResult, weekStart: Date, weekEnd: Date, weekId
     runtimeMinutes: null,
     totalEpisodes: t.number_of_episodes ?? t.seasons?.at(-1)?.episode_count ?? null,
     seasonNumber: t.seasons?.at(-1)?.season_number ?? null,
-    posterUrl: poster(t.poster_path),
+    posterUrl: poster(t.poster_path, t.backdrop_path),
     backdropUrl: backdrop(t.backdrop_path) ?? null,
     trailerUrl,
     synopsis: t.overview || "Synopsis not available yet.",

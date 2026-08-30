@@ -10,7 +10,7 @@ import { EditorialBadgePill } from "@/components/EditorialBadgePill";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { TitleModal } from "@/components/TitleModal";
 
-const FALLBACK_POSTER = "https://picsum.photos/seed/owp-fallback/500/750";
+const FALLBACK_POSTER = "https://placehold.co/500x750/1a1a24/6a6a7a?text=Poster+Not+Available";
 
 export function TitleCard({ title, className }: { title: Title; className?: string }) {
   const [open, setOpen] = useState(false);

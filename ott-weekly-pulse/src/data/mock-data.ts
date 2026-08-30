@@ -57,8 +57,10 @@ export interface MockTitleSeed {
 const tmdbImg = (path: string, size: "w500" | "w1280" = "w500") => `https://image.tmdb.org/t/p/${size}${path}`;
 
 // Fallback for the small number of titles without a verified TMDB path yet.
-const placeholderPoster = (seed: string) => `https://picsum.photos/seed/${seed}/500/750`;
-const placeholderBackdrop = (seed: string) => `https://picsum.photos/seed/${seed}-bd/1280/720`;
+// Honest "no art yet" placeholder — a plain graphic, not a random stock
+// photo that could be mistaken for an actual (wrong) poster.
+const placeholderPoster = (label: string) => `https://placehold.co/500x750/1a1a24/6a6a7a?text=${encodeURIComponent(label)}`;
+const placeholderBackdrop = (label: string) => `https://placehold.co/1280x720/1a1a24/6a6a7a?text=${encodeURIComponent(label)}`;
 
 export const MOCK_TITLES: MockTitleSeed[] = [
   // ================= HINDI — MOVIES (real TMDB posters) =================
@@ -171,8 +173,8 @@ export const MOCK_TITLES: MockTitleSeed[] = [
     platforms: ["JIOHOTSTAR"],
     genres: ["BIOPIC", "MUSICAL", "DRAMA"],
     runtimeMinutes: 144,
-    posterUrl: placeholderPoster("michael-biopic-2026"),
-    backdropUrl: placeholderBackdrop("michael-biopic-2026"),
+    posterUrl: placeholderPoster("Michael"),
+    backdropUrl: placeholderBackdrop("Michael"),
     synopsis:
       "A biographical drama traces the extraordinary rise and deeply complicated life of pop icon Michael Jackson, with his own nephew stepping into the role — a real family connection that gives the film's most difficult chapters unusual weight.",
     cast: ["Jaafar Jackson"],
@@ -193,8 +195,8 @@ export const MOCK_TITLES: MockTitleSeed[] = [
     platforms: ["NETFLIX"],
     genres: ["THRILLER", "CRIME"],
     runtimeMinutes: 112,
-    posterUrl: placeholderPoster("whisper-man-2026"),
-    backdropUrl: placeholderBackdrop("whisper-man-2026"),
+    posterUrl: placeholderPoster("The Whisper Man"),
+    backdropUrl: placeholderBackdrop("The Whisper Man"),
     synopsis:
       "A recently widowed writer and his estranged detective father are forced into an uneasy partnership when a boy's disappearance echoes a decades-old serial-killer case neither of them ever fully closed.",
     cast: ["Robert De Niro", "Adam Scott", "Michelle Monaghan"],
@@ -452,8 +454,8 @@ export const MOCK_TITLES: MockTitleSeed[] = [
     genres: ["COMEDY", "FAMILY"],
     totalEpisodes: 44,
     seasonNumber: 5,
-    posterUrl: placeholderPoster("aata-hou-de-dhingana-s5"),
-    backdropUrl: placeholderBackdrop("aata-hou-de-dhingana-s5"),
+    posterUrl: placeholderPoster("Aata Hou De Dhingana"),
+    backdropUrl: placeholderBackdrop("Aata Hou De Dhingana"),
     synopsis:
       "The long-running Marathi weekend game show returns for a fifth season, pitting popular Star Pravah show casts against each other in music-and-comedy challenges for a family-friendly weekend watch.",
     cast: ["Siddharth Jadhav"],
@@ -479,8 +481,8 @@ export const MOCK_TITLES: MockTitleSeed[] = [
     genres: ["SCI_FI", "THRILLER"],
     totalEpisodes: 10,
     seasonNumber: 2,
-    posterUrl: placeholderPoster("dark-matter-s2"),
-    backdropUrl: placeholderBackdrop("dark-matter-s2"),
+    posterUrl: placeholderPoster("Dark Matter"),
+    backdropUrl: placeholderBackdrop("Dark Matter"),
     synopsis:
       "The fragile peace a family found across alternate versions of their own lives starts to crack as one of them is pulled back into the multiverse-hopping Box, and every version of \"home\" starts to look like a different kind of trap.",
     cast: ["Joel Edgerton", "Jennifer Connelly", "Alice Braga"],
@@ -502,8 +504,8 @@ export const MOCK_TITLES: MockTitleSeed[] = [
     genres: ["COMEDY", "DRAMA"],
     totalEpisodes: 8,
     seasonNumber: 2,
-    posterUrl: placeholderPoster("adults-s2-2026"),
-    backdropUrl: placeholderBackdrop("adults-s2-2026"),
+    posterUrl: placeholderPoster("Adults"),
+    backdropUrl: placeholderBackdrop("Adults"),
     synopsis:
       "Two months after an unexpected kiss upends a tight-knit group of friends, a new love triangle and pointed questions about fertility, growing up, and reclaiming lost time reshape the household all over again.",
     cast: [],

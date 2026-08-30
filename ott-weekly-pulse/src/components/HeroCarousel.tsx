@@ -65,7 +65,7 @@ export function HeroCarousel({ titles }: { titles: Title[] }) {
               <div className="relative aspect-[16/10] w-full overflow-hidden rounded-3xl border border-[hsl(var(--foreground)/0.1)] sm:aspect-[21/9]">
                 <div className={cn("absolute inset-0", selected === i && "animate-[kenburns_9s_ease-out_forwards]")}>
                   <Image
-                    src={title.backdropUrl || title.posterUrl || "https://picsum.photos/seed/owp-fallback-bd/1280/720"}
+                    src={title.backdropUrl || title.posterUrl || "https://placehold.co/1280x720/1a1a24/6a6a7a?text=Image+Not+Available"}
                     alt={title.title}
                     fill
                     priority={i === 0}

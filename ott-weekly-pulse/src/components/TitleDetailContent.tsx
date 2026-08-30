@@ -26,13 +26,13 @@ export function TitleDetailContent({ title }: { title: Title }) {
   return (
     <div>
       <div className="relative aspect-[16/8] w-full sm:aspect-[16/6]">
-        <Image src={title.backdropUrl || title.posterUrl || "https://picsum.photos/seed/owp-fallback-bd/1280/720"} alt={title.title} fill className="object-cover" priority />
+        <Image src={title.backdropUrl || title.posterUrl || "https://placehold.co/1280x720/1a1a24/6a6a7a?text=Image+Not+Available"} alt={title.title} fill className="object-cover" priority />
         <div className="absolute inset-0 bg-gradient-to-t from-card via-card/60 to-transparent" />
       </div>
 
       <div className="-mt-16 flex gap-4 px-5 sm:-mt-20 sm:px-8">
         <Image
-          src={title.posterUrl || "https://picsum.photos/seed/owp-fallback/500/750"}
+          src={title.posterUrl || "https://placehold.co/500x750/1a1a24/6a6a7a?text=Poster+Not+Available"}
           alt={title.title}
           width={120}
           height={180}

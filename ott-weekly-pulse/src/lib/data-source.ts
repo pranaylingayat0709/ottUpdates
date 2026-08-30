@@ -122,7 +122,7 @@ export function listTitlesForWeekMock(weekId?: string): Title[] {
 // Cache (see the `next: { revalidate }` option in src/lib/tmdb.ts), so this
 // is a secondary, best-effort optimization rather than the source of truth.
 const LIVE_CACHE = new Map<string, { data: Title[]; expiresAt: number }>();
-const LIVE_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const LIVE_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes — short enough that a code/config fix is visible quickly, long enough to avoid hammering the live API on every request
 
 // Ensures Hindi/Marathi content isn't crowded out by globally-popular
 // Hollywood titles in the final displayed set. Two layers of defense:

@@ -14,6 +14,10 @@ import type { Genre, Platform, Title, OriginalLanguage } from "@/lib/types";
 const WATCHMODE_BASE_URL = "https://api.watchmode.com/v1";
 const REVALIDATE_SECONDS = 6 * 60 * 60; // 6 hours, via Vercel's persistent Data Cache
 
+// A random stock photo masquerading as a poster is worse than an honest
+// "no art available" placeholder — see the matching comment in tmdb.ts.
+const NO_POSTER_PLACEHOLDER = "https://placehold.co/500x750/1a1a24/6a6a7a?text=Poster+Not+Available";
+
 function apiKey(): string | undefined {
   return process.env.WATCHMODE_API_KEY;
 }
@@ -198,7 +202,7 @@ async function toTitle(item: WmListItem, weekStart: Date, weekEnd: Date, weekId:
     runtimeMinutes: details.runtime_minutes ?? null,
     totalEpisodes: details.episode_count ?? null,
     seasonNumber: details.season_count ?? null,
-    posterUrl: details.poster || "https://picsum.photos/seed/no-poster/500/750",
+    posterUrl: details.poster || details.backdrop || NO_POSTER_PLACEHOLDER,
     backdropUrl: details.backdrop ?? null,
     trailerUrl: null,
     synopsis: details.plot_overview || "Synopsis not available yet.",
