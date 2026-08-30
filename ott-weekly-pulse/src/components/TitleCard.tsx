@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { Bookmark, Star } from "lucide-react";
 import type { Title } from "@/lib/types";
 import { PLATFORM_LABELS } from "@/lib/types";
@@ -16,12 +17,12 @@ export function TitleCard({ title, className }: { title: Title; className?: stri
 
   return (
     <>
-      <div
-        className={cn(
-          "group glass-card cursor-pointer overflow-hidden transition-transform duration-300 hover:-translate-y-1 hover:border-white/20",
-          className
-        )}
+      <motion.div
+        className={cn("group glass-card cursor-pointer overflow-hidden", className)}
         onClick={() => setOpen(true)}
+        whileHover={{ y: -6, scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ type: "spring", stiffness: 350, damping: 22 }}
       >
         <div className="relative aspect-[2/3] w-full overflow-hidden">
           <Image
@@ -70,8 +71,9 @@ export function TitleCard({ title, className }: { title: Title; className?: stri
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
       <TitleModal titleId={title.id} open={open} onOpenChange={setOpen} />
     </>
   );
 }
+

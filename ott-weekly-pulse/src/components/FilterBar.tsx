@@ -51,7 +51,7 @@ export function FilterBar({
           value={filters.search ?? ""}
           onChange={(e) => onChange({ search: e.target.value })}
           placeholder="Search titles, cast, or directors…"
-          className="w-full rounded-full border border-white/10 bg-white/5 py-2.5 pl-9 pr-9 text-sm placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/50"
+          className="w-full rounded-full border border-[hsl(var(--foreground)/0.1)] bg-[hsl(var(--foreground)/0.04)] py-2.5 pl-9 pr-9 text-sm placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/50"
         />
         {filters.search && (
           <button

@@ -53,7 +53,7 @@ export function WatchlistDrawer({ open, onOpenChange }: { open: boolean; onOpenC
                 </div>
                 <button
                   onClick={() => toggle(t.id)}
-                  className="self-start rounded-full p-1.5 text-muted-foreground hover:bg-white/10 hover:text-accent"
+                  className="self-start rounded-full p-1.5 text-muted-foreground hover:bg-[hsl(var(--foreground)/0.08)] hover:text-accent"
                   aria-label="Remove from watchlist"
                 >
                   <Bookmark className="h-4 w-4 fill-current" />

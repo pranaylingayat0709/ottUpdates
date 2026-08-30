@@ -1,11 +1,12 @@
 "use client";
 import { useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import { useTitles, useWeeks } from "@/hooks/useTitles";
 import { WeekSelector } from "@/components/WeekSelector";
 import { HeroCarousel } from "@/components/HeroCarousel";
 import { FilterBar } from "@/components/FilterBar";
-import { ReleaseCalendar } from "@/components/ReleaseCalendar";
-import { TitleCard } from "@/components/TitleCard";
+import { ReleaseCalendar, CatalogSection } from "@/components/ReleaseCalendar";
+import { Clapperboard, Tv } from "lucide-react";
 import type { TitleFilters } from "@/lib/types";
 
 const DEFAULT_FILTERS: TitleFilters = { type: "ALL", language: "ALL", platform: "ALL", genre: "ALL" };
@@ -28,7 +29,7 @@ export default function DashboardPage() {
     filters.type !== "ALL" || filters.language !== "ALL" || filters.platform !== "ALL" || filters.genre !== "ALL" || !!filters.minRating || !!filters.search;
 
   return (
-    <div className="animate-fade-up">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
       <WeekSelector weekId={activeWeekId} onChange={setWeekId} />
 
       {!hasActiveFilters && heroTitles.length > 0 && <HeroCarousel titles={heroTitles} />}
@@ -44,20 +45,29 @@ export default function DashboardPage() {
       )}
 
       {!isLoading && hasActiveFilters && (
-        <section>
-          <h2 className="mb-4 text-xl font-bold tracking-tight">
+        <div>
+          <p className="mb-4 text-sm text-muted-foreground">
             {data?.total ?? 0} result{(data?.total ?? 0) !== 1 ? "s" : ""}
-          </h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {titles.map((t) => <TitleCard key={t.id} title={t} />)}
-          </div>
+          </p>
+          <CatalogSection
+            title="Movies"
+            icon={Clapperboard}
+            titles={titles.filter((t) => t.type === "MOVIE")}
+            emptyLabel=""
+          />
+          <CatalogSection
+            title="Web Series"
+            icon={Tv}
+            titles={titles.filter((t) => t.type === "SERIES")}
+            emptyLabel=""
+          />
           {titles.length === 0 && (
             <p className="py-16 text-center text-sm text-muted-foreground">No titles match your filters this week — try widening your search.</p>
           )}
-        </section>
+        </div>
       )}
 
       {!isLoading && !hasActiveFilters && <ReleaseCalendar titles={titles} />}
-    </div>
+    </motion.div>
   );
 }

@@ -123,6 +123,21 @@ export function listTitlesForWeekMock(weekId?: string): Title[] {
 const LIVE_CACHE = new Map<string, { data: Title[]; expiresAt: number }>();
 const LIVE_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
+// Ensures Hindi/Marathi content isn't crowded out by globally-popular
+// Hollywood titles in the final displayed set — applied to whichever live
+// source returned results. Reorders so Hindi+Marathi titles are guaranteed
+// a strong majority (up to ~70% of the final list) whenever enough of them
+// were found, without fully discarding English/other content.
+function prioritizeIndianLanguages(titles: Title[], maxCount = 16): Title[] {
+  const hindiMarathi = titles.filter((t) => t.originalLanguage === "HINDI" || t.originalLanguage === "MARATHI");
+  const others = titles.filter((t) => t.originalLanguage !== "HINDI" && t.originalLanguage !== "MARATHI");
+
+  const targetIndian = Math.min(hindiMarathi.length, Math.ceil(maxCount * 0.7));
+  const remainingSlots = maxCount - targetIndian;
+
+  return [...hindiMarathi.slice(0, targetIndian), ...others.slice(0, remainingSlots)];
+}
+
 /**
  * The catalog for a given week. Priority order:
  *   1. Watchmode (WATCHMODE_API_KEY) — a dedicated streaming-availability
@@ -151,8 +166,9 @@ export async function listTitlesForWeek(weekId?: string): Promise<Title[]> {
   }
   if (!live || live.length === 0) return listTitlesForWeekMock(weekId);
 
-  LIVE_CACHE.set(resolvedWeekId, { data: live, expiresAt: Date.now() + LIVE_CACHE_TTL_MS });
-  return live;
+  const balanced = prioritizeIndianLanguages(live);
+  LIVE_CACHE.set(resolvedWeekId, { data: balanced, expiresAt: Date.now() + LIVE_CACHE_TTL_MS });
+  return balanced;
 }
 
 export async function getTitleById(id: string): Promise<Title | undefined> {

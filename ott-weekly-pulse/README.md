@@ -94,5 +94,18 @@ Either live source works the same way once configured:
 
 **Known limitation shared by both live sources:** neither exposes an exact "digital premiere date per platform" — that precision is JustWatch's specialty, and JustWatch's public API requires a partner agreement this project doesn't have. So the live feed shows "currently popular + actively streaming + released in the last ~3 weeks" rather than a strict Friday-cutoff — in practice this converges on the same weekly slate, but a handful of results may be a week or two older than a strict cutoff would show. Cast/director/dub-language precision also varies by source (Watchmode's free tier omits cast/crew entirely; TMDB includes it). If you later get JustWatch partner API access, swap in a JustWatch-backed fetcher for exact per-platform premiere dates.
 
+## Hindi/Marathi-first content weighting
+
+The app is built to surface Hindi and Marathi content prominently rather than defaulting to whatever is globally popular (which skews Hollywood):
+
+- **Live mode:** `tmdb.ts` runs separate `with_original_language=hi` and `with_original_language=mr` discover queries alongside a general query, merging results so regional titles aren't drowned out by global vote counts. `data-source.ts` then applies a `prioritizeIndianLanguages()` pass that guarantees Hindi+Marathi make up roughly 70% of the final displayed catalog whenever enough are found, regardless of which live source is active — this is a data-agnostic safety net that works even for Watchmode, which doesn't expose a documented per-language filter param.
+- **Mock/fallback mode:** `src/data/mock-data.ts` is weighted 6 Hindi + 1 Marathi + 4 English titles, sourced from real trade-press coverage of that week's actual releases (see comments in the file for sourcing).
+
+## UI: Movies vs. Web Series, theming, and motion
+
+- **Separate sections:** the release calendar and filtered search results both render "Movies," "Web Series," and (when present) "Documentaries" as distinct titled sections rather than one mixed grid — see `CatalogSection` in `src/components/ReleaseCalendar.tsx`, reused on both the default and filtered views.
+- **Light/dark theme:** a full theme system lives in `src/components/ThemeProvider.tsx` + `ThemeToggle.tsx` (the sun/moon button in the header). Both themes are defined as CSS custom properties in `globals.css` (`:root` for light, `.dark` for dark) — glassmorphic panels, chips, and borders all reference these variables rather than hardcoded colors, so they render correctly in both themes. An inline script in `layout.tsx` sets the correct theme class before hydration to avoid a flash of the wrong theme on load.
+- **Motion:** Framer Motion powers scroll-triggered reveal animations on each catalog section (staggered card entrance), spring-physics hover/tap on title cards, and a smooth icon-swap transition on the theme toggle.
+
 - All sample titles, cast, and quotes in `mock-data.ts` are fictional placeholders standing in for real weekly releases.
 - Poster/backdrop images use placeholder URLs (`picsum.photos`) — replace with TMDB image URLs (`image.tmdb.org`, already whitelisted in `next.config.js`) once wired to a real feed.

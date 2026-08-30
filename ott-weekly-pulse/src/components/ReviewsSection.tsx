@@ -46,12 +46,12 @@ export function ReviewsSection({ titleId }: { titleId: string }) {
             value={userName}
             onChange={(e) => setUserName(e.target.value)}
             placeholder="Your name"
-            className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
+            className="flex-1 rounded-lg border border-[hsl(var(--foreground)/0.1)] bg-[hsl(var(--foreground)/0.04)] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
           />
-          <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2">
+          <div className="flex items-center gap-1 rounded-lg border border-[hsl(var(--foreground)/0.1)] bg-[hsl(var(--foreground)/0.04)] px-2">
             {[2, 4, 6, 8, 10].map((v) => (
               <button key={v} onClick={() => setRating(v)} type="button">
-                <Star className={`h-4 w-4 ${rating >= v ? "fill-yellow-400 text-yellow-400" : "text-white/20"}`} />
+                <Star className={`h-4 w-4 ${rating >= v ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/40"}`} />
               </button>
             ))}
           </div>
@@ -61,7 +61,7 @@ export function ReviewsSection({ titleId }: { titleId: string }) {
           onChange={(e) => setBody(e.target.value)}
           placeholder="Share your thoughts…"
           rows={2}
-          className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
+          className="w-full resize-none rounded-lg border border-[hsl(var(--foreground)/0.1)] bg-[hsl(var(--foreground)/0.04)] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
         />
         <div className="flex justify-end">
           <Button size="sm" disabled={submitting} onClick={submit}>
@@ -72,7 +72,7 @@ export function ReviewsSection({ titleId }: { titleId: string }) {
 
       <div className="space-y-3">
         {reviews.map((r) => (
-          <div key={r.id} className="border-b border-white/5 pb-3 last:border-0">
+          <div key={r.id} className="border-b border-[hsl(var(--foreground)/0.06)] pb-3 last:border-0">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold">{r.userName}</span>
               <span className="flex items-center gap-1 text-xs text-yellow-400">

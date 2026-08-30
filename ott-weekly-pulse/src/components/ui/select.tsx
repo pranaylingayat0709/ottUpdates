@@ -14,7 +14,7 @@ export const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-9 min-w-[140px] items-center justify-between gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 text-xs font-medium text-foreground hover:bg-white/10 focus:outline-none focus:ring-1 focus:ring-ring",
+      "flex h-9 min-w-[140px] items-center justify-between gap-2 rounded-full border border-[hsl(var(--foreground)/0.1)] bg-[hsl(var(--foreground)/0.04)] px-3.5 text-xs font-medium text-foreground hover:bg-[hsl(var(--foreground)/0.08)] focus:outline-none focus:ring-1 focus:ring-ring",
       className
     )}
     {...props}
@@ -34,7 +34,7 @@ export const SelectContent = React.forwardRef<
       ref={ref}
       position={position}
       className={cn(
-        "z-[60] min-w-[10rem] overflow-hidden rounded-xl border border-white/10 bg-card/95 backdrop-blur-xl shadow-2xl",
+        "z-[60] min-w-[10rem] overflow-hidden rounded-xl border border-[hsl(var(--foreground)/0.1)] bg-card/95 backdrop-blur-xl shadow-2xl",
         className
       )}
       {...props}
@@ -52,7 +52,7 @@ export const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-pointer select-none items-center rounded-lg py-2 pl-8 pr-3 text-sm text-foreground outline-none data-[highlighted]:bg-white/10",
+      "relative flex cursor-pointer select-none items-center rounded-lg py-2 pl-8 pr-3 text-sm text-foreground outline-none data-[highlighted]:bg-[hsl(var(--foreground)/0.08)]",
       className
     )}
     {...props}

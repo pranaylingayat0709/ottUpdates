@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import { SiteHeader } from "@/components/SiteHeader";
 
 // Using the system font stack (configured in tailwind.config.ts / globals.css)
@@ -11,24 +12,43 @@ import { SiteHeader } from "@/components/SiteHeader";
 export const metadata: Metadata = {
   title: "OTT Weekly Pulse — Weekly Movie & Series Picks",
   description:
-    "Curated weekly movie and web series recommendations across Netflix, Prime Video, Disney+ Hotstar, JioCinema, SonyLIV, ZEE5 and more — English, Hindi & Marathi, every Friday.",
-  keywords: ["OTT", "weekly releases", "movies", "web series", "Netflix", "Prime Video", "Hotstar", "reviews"],
+    "Curated weekly movie and web series recommendations across Netflix, Prime Video, JioHotstar, SonyLIV, ZEE5 and more — Hindi, Marathi & English, every Friday.",
+  keywords: ["OTT", "weekly releases", "movies", "web series", "Bollywood", "Marathi", "Netflix", "Prime Video", "JioHotstar", "reviews"],
 };
 
 export const viewport = { themeColor: "#0a0a0f" };
 
+// Runs before React hydrates so the correct theme class is on <html> from
+// the very first paint — prevents a flash of the wrong theme on load.
+const THEME_INIT_SCRIPT = `
+(function() {
+  try {
+    var stored = localStorage.getItem('owp-theme');
+    var isDark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.toggle('dark', isDark);
+  } catch (e) {
+    document.documentElement.classList.add('dark');
+  }
+})();
+`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-screen font-sans">
-        <Providers>
-          <SiteHeader />
-          <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 lg:px-8">{children}</main>
-          <footer className="border-t border-white/5 py-8 text-center text-xs text-muted-foreground">
-            OTT Weekly Pulse · Fresh Friday–Thursday picks across English, Hindi & Marathi ·{" "}
-            <span className="text-foreground/70">Built with Next.js, Tailwind & NVIDIA NIM</span>
-          </footer>
-        </Providers>
+        <ThemeProvider>
+          <Providers>
+            <SiteHeader />
+            <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 lg:px-8">{children}</main>
+            <footer className="border-t py-8 text-center text-xs text-muted-foreground" style={{ borderColor: "hsl(var(--foreground) / 0.06)" }}>
+              OTT Weekly Pulse · Fresh Friday–Thursday picks in Hindi, Marathi & English ·{" "}
+              <span className="text-foreground/70">Built with Next.js, Tailwind & NVIDIA NIM</span>
+            </footer>
+          </Providers>
+        </ThemeProvider>
       </body>
     </html>
   );

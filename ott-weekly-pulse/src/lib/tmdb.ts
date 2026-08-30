@@ -178,31 +178,69 @@ async function discoverMovies(weekStart: Date, weekEnd: Date): Promise<TmdbMovie
   const recentFrom = new Date(weekStart);
   recentFrom.setDate(recentFrom.getDate() - 21);
 
-  const data = await tmdbFetch<{ results: TmdbMovieResult[] }>("/discover/movie", {
+  // Run separate queries per language instead of one global-popularity
+  // query — a single popularity-sorted call is dominated by Hollywood
+  // titles with far larger global vote counts, which was silently
+  // crowding out Hindi/Marathi content. Fetching Hindi and Marathi pools
+  // explicitly guarantees they're represented regardless of global buzz.
+  const baseParams = {
     region: "IN",
     watch_region: "IN",
     with_watch_monetization_types: "flatrate",
     sort_by: "popularity.desc",
     "primary_release_date.gte": fmt(recentFrom),
     "primary_release_date.lte": fmt(weekEnd),
-    "vote_count.gte": "5"
-  });
-  return data?.results?.slice(0, 20) ?? [];
+    "vote_count.gte": "2"
+  };
+
+  const [hindi, marathi, general] = await Promise.all([
+    tmdbFetch<{ results: TmdbMovieResult[] }>("/discover/movie", { ...baseParams, with_original_language: "hi" }),
+    tmdbFetch<{ results: TmdbMovieResult[] }>("/discover/movie", { ...baseParams, with_original_language: "mr" }),
+    tmdbFetch<{ results: TmdbMovieResult[] }>("/discover/movie", { ...baseParams, "vote_count.gte": "5" })
+  ]);
+
+  const seen = new Set<number>();
+  const merged: TmdbMovieResult[] = [];
+  // Hindi and Marathi pools go first so they survive any later truncation.
+  for (const pool of [hindi?.results ?? [], marathi?.results ?? [], general?.results ?? []]) {
+    for (const item of pool) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      merged.push(item);
+    }
+  }
+  return merged.slice(0, 24);
 }
 
 async function discoverTv(weekStart: Date, weekEnd: Date): Promise<TmdbTvResult[]> {
   const recentFrom = new Date(weekStart);
   recentFrom.setDate(recentFrom.getDate() - 21);
 
-  const data = await tmdbFetch<{ results: TmdbTvResult[] }>("/discover/tv", {
+  const baseParams = {
     watch_region: "IN",
     with_watch_monetization_types: "flatrate",
     sort_by: "popularity.desc",
     "first_air_date.gte": fmt(recentFrom),
     "first_air_date.lte": fmt(weekEnd),
-    "vote_count.gte": "3"
-  });
-  return data?.results?.slice(0, 20) ?? [];
+    "vote_count.gte": "1"
+  };
+
+  const [hindi, marathi, general] = await Promise.all([
+    tmdbFetch<{ results: TmdbTvResult[] }>("/discover/tv", { ...baseParams, with_original_language: "hi" }),
+    tmdbFetch<{ results: TmdbTvResult[] }>("/discover/tv", { ...baseParams, with_original_language: "mr" }),
+    tmdbFetch<{ results: TmdbTvResult[] }>("/discover/tv", { ...baseParams, "vote_count.gte": "3" })
+  ]);
+
+  const seen = new Set<number>();
+  const merged: TmdbTvResult[] = [];
+  for (const pool of [hindi?.results ?? [], marathi?.results ?? [], general?.results ?? []]) {
+    for (const item of pool) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      merged.push(item);
+    }
+  }
+  return merged.slice(0, 24);
 }
 
 function pickGenres(ids: number[], map: Record<number, Genre>): Genre[] {
