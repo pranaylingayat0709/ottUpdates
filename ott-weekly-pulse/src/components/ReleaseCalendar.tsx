@@ -5,11 +5,15 @@ import { motion } from "framer-motion";
 import type { Title } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { TitleCard } from "@/components/TitleCard";
+import { TitleListRow } from "@/components/TitleListRow";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useI18n } from "@/components/LanguageProvider";
-import { CalendarRange, Clapperboard, Tv, BookOpen, ChevronDown } from "lucide-react";
+import { useViewPreferences, sortTitles, type SortMode } from "@/hooks/useViewPreferences";
+import { useMyPlatformsStore } from "@/hooks/useMyPlatformsStore";
+import { CalendarRange, Clapperboard, Tv, BookOpen, ChevronDown, LayoutGrid, List, ArrowUpDown } from "lucide-react";
 
 const gridVariants = {
   hidden: {},
@@ -20,7 +24,14 @@ const cardVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } }
 };
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 12;
+
+const SORT_OPTIONS: { value: SortMode; label: string }[] = [
+  { value: "newest", label: "Newest First" },
+  { value: "rating", label: "Highest Rated" },
+  { value: "popular", label: "Most Popular" },
+  { value: "alpha", label: "A–Z" }
+];
 
 export function CatalogSection({
   title,
@@ -34,59 +45,132 @@ export function CatalogSection({
   emptyLabel: string;
 }) {
   const { t } = useI18n();
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [expanded, setExpanded] = useState(false);
+  const viewMode = useViewPreferences((s) => s.viewMode);
+  const sortMode = useViewPreferences((s) => s.sortMode);
 
-  if (titles.length === 0) return null;
-  const shown = titles.slice(0, visibleCount);
-  const hasMore = titles.length > visibleCount;
+  const sorted = useMemo(() => sortTitles(titles, sortMode), [titles, sortMode]);
+
+  if (sorted.length === 0) return null;
+  const shown = expanded ? sorted : sorted.slice(0, PAGE_SIZE);
+  const hasMore = !expanded && sorted.length > PAGE_SIZE;
 
   return (
-    <motion.section
-      className="mb-12"
-      initial="hidden"
-      animate="visible"
-      variants={gridVariants}
-    >
+    <motion.section className="mb-12" initial="hidden" animate="visible" variants={gridVariants}>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="flex items-center gap-2 font-display text-xl font-bold tracking-tight sm:text-2xl">
           <Icon className="h-5 w-5 text-accent" /> {title}
         </h2>
-        <span className="chip !py-1 text-[11px]"><AnimatedCounter value={titles.length} /> title{titles.length !== 1 ? "s" : ""}</span>
+        <span className="chip !py-1 text-[11px]"><AnimatedCounter value={sorted.length} /> title{sorted.length !== 1 ? "s" : ""}</span>
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {shown.map((t) => (
-          <motion.div key={t.id} variants={cardVariants}>
-            <ErrorBoundary fallbackLabel="Couldn't load this title.">
-              <TitleCard title={t} />
-            </ErrorBoundary>
-          </motion.div>
-        ))}
-      </div>
+
+      {viewMode === "grid" ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {shown.map((t) => (
+            <motion.div key={t.id} variants={cardVariants}>
+              <ErrorBoundary fallbackLabel="Couldn't load this title.">
+                <TitleCard title={t} />
+              </ErrorBoundary>
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {shown.map((t) => (
+            <motion.div key={t.id} variants={cardVariants}>
+              <ErrorBoundary fallbackLabel="Couldn't load this title.">
+                <TitleListRow title={t} />
+              </ErrorBoundary>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
       {hasMore && (
         <div className="mt-5 flex justify-center">
-          <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
-            {t("loadMore")} <ChevronDown className="h-3.5 w-3.5" />
+          <Button variant="outline" size="sm" onClick={() => setExpanded(true)}>
+            {t("viewAll")} ({sorted.length}) <ChevronDown className="h-3.5 w-3.5" />
           </Button>
         </div>
       )}
-      {titles.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">{emptyLabel}</p>}
+      {sorted.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">{emptyLabel}</p>}
     </motion.section>
+  );
+}
+
+function DisplayToolbar() {
+  const viewMode = useViewPreferences((s) => s.viewMode);
+  const setViewMode = useViewPreferences((s) => s.setViewMode);
+  const sortMode = useViewPreferences((s) => s.sortMode);
+  const setSortMode = useViewPreferences((s) => s.setSortMode);
+  const myPlatformsOnly = useViewPreferences((s) => s.myPlatformsOnly);
+  const setMyPlatformsOnly = useViewPreferences((s) => s.setMyPlatformsOnly);
+  const myPlatformsCount = useMyPlatformsStore((s) => s.platforms.length);
+
+  return (
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
+      <div className="flex items-center gap-2">
+        {myPlatformsCount > 0 && (
+          <button
+            onClick={() => setMyPlatformsOnly(!myPlatformsOnly)}
+            className={cn("chip", myPlatformsOnly && "chip-active")}
+          >
+            My Platforms Only
+          </button>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <Select value={sortMode} onValueChange={(v) => setSortMode(v as SortMode)}>
+          <SelectTrigger className="!min-w-0 gap-1.5 px-3">
+            <ArrowUpDown className="h-3.5 w-3.5" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <div className="flex overflow-hidden rounded-full border border-[hsl(var(--foreground)/0.1)]">
+          <button
+            onClick={() => setViewMode("grid")}
+            className={cn("flex h-9 w-9 items-center justify-center transition-colors", viewMode === "grid" ? "bg-accent text-white" : "hover:bg-[hsl(var(--foreground)/0.06)]")}
+            aria-label="Grid view"
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setViewMode("list")}
+            className={cn("flex h-9 w-9 items-center justify-center transition-colors", viewMode === "list" ? "bg-accent text-white" : "hover:bg-[hsl(var(--foreground)/0.06)]")}
+            aria-label="List view"
+          >
+            <List className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
 export function ReleaseCalendar({ titles }: { titles: Title[] }) {
   const { t } = useI18n();
+  const myPlatforms = useMyPlatformsStore((s) => s.platforms);
+  const myPlatformsOnly = useViewPreferences((s) => s.myPlatformsOnly);
+
+  const scoped = useMemo(() => {
+    if (!myPlatformsOnly || myPlatforms.length === 0) return titles;
+    return titles.filter((t) => t.platforms.some((p) => myPlatforms.includes(p)));
+  }, [titles, myPlatformsOnly, myPlatforms]);
+
   const days = useMemo(
     () =>
-      Array.from(new Map(titles.map((t) => [new Date(t.releaseDate).toDateString(), new Date(t.releaseDate)])).values()).sort(
+      Array.from(new Map(scoped.map((t) => [new Date(t.releaseDate).toDateString(), new Date(t.releaseDate)])).values()).sort(
         (a, b) => a.getTime() - b.getTime()
       ),
-    [titles]
+    [scoped]
   );
 
   const [activeDay, setActiveDay] = useState<Date | null>(null);
 
-  const visible = activeDay ? titles.filter((t) => isSameDay(new Date(t.releaseDate), activeDay)) : titles;
+  const visible = activeDay ? scoped.filter((t) => isSameDay(new Date(t.releaseDate), activeDay)) : scoped;
   const movies = visible.filter((t) => t.type === "MOVIE");
   const series = visible.filter((t) => t.type === "SERIES");
   const documentaries = visible.filter((t) => t.type === "DOCUMENTARY");
@@ -97,9 +181,9 @@ export function ReleaseCalendar({ titles }: { titles: Title[] }) {
         <CalendarRange className="h-5 w-5 text-accent" /> {t("calendar.title")}
       </h2>
 
-      <div className="mb-10 grid grid-cols-7 gap-1.5 sm:gap-2">
+      <div className="mb-6 grid grid-cols-7 gap-1.5 sm:gap-2">
         {days.map((day) => {
-          const count = titles.filter((t) => isSameDay(new Date(t.releaseDate), day)).length;
+          const count = scoped.filter((t) => isSameDay(new Date(t.releaseDate), day)).length;
           const isActive = activeDay && isSameDay(activeDay, day);
           return (
             <button
@@ -118,12 +202,14 @@ export function ReleaseCalendar({ titles }: { titles: Title[] }) {
         })}
       </div>
 
+      <DisplayToolbar />
+
       <CatalogSection title={t("section.movies")} icon={Clapperboard} titles={movies} emptyLabel="No movies match this filter." />
       <CatalogSection title={t("section.webSeries")} icon={Tv} titles={series} emptyLabel="No web series match this filter." />
       <CatalogSection title={t("section.documentaries")} icon={BookOpen} titles={documentaries} emptyLabel="" />
 
       {visible.length === 0 && (
-        <p className="py-16 text-center text-sm text-muted-foreground">No releases match this filter — try another day.</p>
+        <p className="py-16 text-center text-sm text-muted-foreground">No releases match this filter — try another day{myPlatformsOnly ? " or turn off My Platforms Only" : ""}.</p>
       )}
     </div>
   );

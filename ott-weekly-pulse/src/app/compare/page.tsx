@@ -5,17 +5,22 @@ import { ArrowLeftRight, Scale } from "lucide-react";
 import { useTitles, useWeeks } from "@/hooks/useTitles";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PLATFORM_LABELS, PLATFORM_COLORS, GENRE_LABELS, type Platform } from "@/lib/types";
+import { formatStartingPrice } from "@/lib/platform-pricing";
 import { TitleCard } from "@/components/TitleCard";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const PLATFORM_OPTIONS = Object.entries(PLATFORM_LABELS) as [Platform, string][];
 
 function PlatformColumn({ platform, count, genreBreakdown }: { platform: Platform; count: number; genreBreakdown: [string, number][] }) {
+  const price = formatStartingPrice(platform);
   return (
     <div className="glass-panel flex-1 p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: PLATFORM_COLORS[platform] }} />
-        <h3 className="font-display text-lg font-bold">{PLATFORM_LABELS[platform]}</h3>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: PLATFORM_COLORS[platform] }} />
+          <h3 className="font-display text-lg font-bold">{PLATFORM_LABELS[platform]}</h3>
+        </div>
+        {price && <span className="chip !py-1 text-[10px]">from {price}*</span>}
       </div>
       <p className="mb-3 text-3xl font-extrabold text-gradient">{count}</p>
       <p className="mb-4 text-xs text-muted-foreground">new titles this week</p>
@@ -88,10 +93,11 @@ export default function ComparePage() {
         </div>
       ) : (
         <>
-          <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="mb-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <PlatformColumn platform={left} count={stats.left.matched.length} genreBreakdown={stats.left.genreBreakdown} />
             <PlatformColumn platform={right} count={stats.right.matched.length} genreBreakdown={stats.right.genreBreakdown} />
           </div>
+          <p className="mb-8 text-[10px] text-muted-foreground/70">*Approximate starting price, varies by plan/promo — check the platform directly for current pricing.</p>
 
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
             <div>

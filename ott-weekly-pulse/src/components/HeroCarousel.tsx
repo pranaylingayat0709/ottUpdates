@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { TitleModal } from "@/components/TitleModal";
 import { useI18n } from "@/components/LanguageProvider";
 import { useTrailerPlayer } from "@/hooks/useTrailerPlayer";
-import { extractYouTubeId } from "@/lib/youtube";
+import { getTrailerAction } from "@/lib/youtube";
 
 export function HeroCarousel({ titles }: { titles: Title[] }) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
@@ -112,20 +112,19 @@ export function HeroCarousel({ titles }: { titles: Title[] }) {
                         <Button size="lg" onClick={() => setActiveTitleId(title.id)}>
                           <PlayCircle className="h-4 w-4" /> {t("title.viewDetails")}
                         </Button>
-                        {title.trailerUrl && (
-                          <Button
-                            size="lg"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const videoId = extractYouTubeId(title.trailerUrl!);
-                              if (videoId) playTrailer(videoId, title.title);
-                              else window.open(title.trailerUrl!, "_blank", "noopener,noreferrer");
-                            }}
-                          >
-                            <Film className="h-4 w-4" /> {t("title.watchTrailer")}
-                          </Button>
-                        )}
+                        <Button
+                          size="lg"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const action = getTrailerAction(title.title, title.trailerUrl);
+                            if (action.kind === "play") playTrailer(action.videoId, title.title);
+                            else window.open(action.url, "_blank", "noopener,noreferrer");
+                          }}
+                        >
+                          <Film className="h-4 w-4" />
+                          {title.trailerUrl ? t("title.watchTrailer") : t("title.searchTrailer")}
+                        </Button>
                       </div>
                     </motion.div>
                   )}

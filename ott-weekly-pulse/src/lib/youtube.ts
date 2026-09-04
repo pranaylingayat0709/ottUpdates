@@ -13,3 +13,23 @@ export function extractYouTubeId(url: string): string | null {
     return null;
   }
 }
+
+export type TrailerAction =
+  | { kind: "play"; videoId: string } // confirmed video — play in-app
+  | { kind: "external"; url: string } // confirmed link, but not YouTube — open in a new tab
+  | { kind: "search"; url: string }; // no confirmed link — offer a YouTube search instead of nothing
+
+/**
+ * Every title gets SOME trailer action, never a dead end: play in-app if
+ * we have a real YouTube link, open externally if we have a real link to
+ * a different host, or fall back to a YouTube search for titles no data
+ * source has trailer info for yet.
+ */
+export function getTrailerAction(title: string, trailerUrl?: string | null): TrailerAction {
+  if (trailerUrl) {
+    const videoId = extractYouTubeId(trailerUrl);
+    if (videoId) return { kind: "play", videoId };
+    return { kind: "external", url: trailerUrl };
+  }
+  return { kind: "search", url: `https://www.youtube.com/results?search_query=${encodeURIComponent(`${title} official trailer`)}` };
+}

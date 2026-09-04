@@ -79,6 +79,7 @@ export interface Review {
   rating: number;
   body: string;
   createdAt: string;
+  helpfulCount: number;
 }
 
 export interface TitleFilters {

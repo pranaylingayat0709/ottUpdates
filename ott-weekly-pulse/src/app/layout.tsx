@@ -9,6 +9,8 @@ import { FooterTagline } from "@/components/FooterTagline";
 import { TrailerPlayer } from "@/components/TrailerPlayer";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { BackToTop } from "@/components/BackToTop";
 
 // Using the system font stack (configured in tailwind.config.ts / globals.css)
 // instead of next/font/google so the app builds and renders instantly in
@@ -64,6 +66,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </footer>
               <TrailerPlayer />
               <ServiceWorkerRegister />
+              <MobileBottomNav />
+              <BackToTop />
             </Providers>
           </LanguageProvider>
         </ThemeProvider>

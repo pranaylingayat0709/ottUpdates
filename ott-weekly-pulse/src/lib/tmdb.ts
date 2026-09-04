@@ -20,7 +20,11 @@ import type { Genre, Platform, Title, TitleType, OriginalLanguage } from "@/lib/
 
 const TMDB_BASE_URL = process.env.TMDB_BASE_URL ?? "https://api.themoviedb.org/3";
 const IMAGE_BASE = "https://image.tmdb.org/t/p";
-const REVALIDATE_SECONDS = 6 * 60 * 60; // 6 hours — Vercel's persistent Data Cache handles this across requests/instances
+// TMDB doesn't have a hard monthly request cap like Watchmode (it enforces
+// per-second rate limits instead), so this can stay more generous — but
+// it's still configurable if you want to tune freshness vs. load.
+const REVALIDATE_SECONDS = Number(process.env.TMDB_REVALIDATE_SECONDS) || 6 * 60 * 60;
+const CANDIDATE_LIMIT = Number(process.env.TMDB_CANDIDATE_LIMIT) || 40;
 
 function apiKey(): string | undefined {
   return process.env.TMDB_API_KEY;
@@ -237,7 +241,7 @@ async function discoverMovies(weekStart: Date, weekEnd: Date): Promise<TmdbMovie
       merged.push(item);
     }
   }
-  return merged.slice(0, 60);
+  return merged.slice(0, CANDIDATE_LIMIT);
 }
 
 async function discoverTv(weekStart: Date, weekEnd: Date): Promise<TmdbTvResult[]> {
@@ -268,7 +272,7 @@ async function discoverTv(weekStart: Date, weekEnd: Date): Promise<TmdbTvResult[
       merged.push(item);
     }
   }
-  return merged.slice(0, 60);
+  return merged.slice(0, CANDIDATE_LIMIT);
 }
 
 function pickGenres(ids: number[], map: Record<number, Genre>): Genre[] {

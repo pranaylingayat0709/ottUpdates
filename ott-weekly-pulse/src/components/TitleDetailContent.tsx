@@ -1,21 +1,26 @@
 "use client";
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect } from "react";
-import { Bookmark, BellRing, Clapperboard, ExternalLink, Film, Languages, Tv2 } from "lucide-react";
+import { Bookmark, BellRing, CheckCircle2, Clapperboard, ExternalLink, Film, Languages, Tv2 } from "lucide-react";
 import type { Title } from "@/lib/types";
 import { PLATFORM_LABELS, GENRE_LABELS } from "@/lib/types";
+import { formatStartingPrice } from "@/lib/platform-pricing";
 import { cn, formatRuntime } from "@/lib/utils";
 import { EditorialBadgePill } from "@/components/EditorialBadgePill";
 import { RatingRow } from "@/components/RatingRow";
 import { AiVerdictCard } from "@/components/AiVerdictCard";
+import { CriticsTakeCard } from "@/components/CriticsTakeCard";
+import { MoreLikeThis } from "@/components/MoreLikeThis";
 import { ReviewsSection } from "@/components/ReviewsSection";
 import { Button } from "@/components/ui/button";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { useReminderStore } from "@/hooks/useReminderStore";
+import { useWatchedStore } from "@/hooks/useWatchedStore";
 import { useRecentlyViewedStore } from "@/hooks/useRecentlyViewedStore";
 import { useI18n } from "@/components/LanguageProvider";
 import { useTrailerPlayer } from "@/hooks/useTrailerPlayer";
-import { extractYouTubeId } from "@/lib/youtube";
+import { getTrailerAction } from "@/lib/youtube";
 import { subscribeForTitle } from "@/hooks/usePushNotifications";
 import { ShareButton } from "@/components/ShareButton";
 import { format } from "date-fns";
@@ -26,6 +31,8 @@ export function TitleDetailContent({ title }: { title: Title }) {
   const reminded = useReminderStore((s) => s.isReminded(title.id));
   const playTrailer = useTrailerPlayer((s) => s.play);
   const toggleReminder = useReminderStore((s) => s.toggle);
+  const watched = useWatchedStore((s) => s.isWatched(title.id));
+  const toggleWatched = useWatchedStore((s) => s.toggle);
   const { t } = useI18n();
   const recordView = useRecentlyViewedStore((s) => s.record);
 
@@ -72,7 +79,11 @@ export function TitleDetailContent({ title }: { title: Title }) {
               ? formatRuntime(title.runtimeMinutes) || "Runtime unavailable"
               : `${title.totalEpisodes ? `${title.totalEpisodes} episodes` : "Episode count unavailable"}${title.seasonNumber ? ` · Season ${title.seasonNumber}` : ""}`}
           </span>
-          {title.genres.map((g) => <span key={g} className="chip">{GENRE_LABELS[g] ?? g}</span>)}
+          {title.genres.map((g) => (
+            <Link key={g} href={`/genre/${g.toLowerCase().replace(/_/g, "-")}`} className="chip hover:border-accent/50 hover:text-accent">
+              {GENRE_LABELS[g] ?? g}
+            </Link>
+          ))}
         </div>
 
         <RatingRow title={title} />
@@ -85,7 +96,24 @@ export function TitleDetailContent({ title }: { title: Title }) {
         {title.cast.length > 0 && (
           <div>
             <h4 className="mb-1.5 text-sm font-bold">Cast</h4>
-            <p className="text-sm text-muted-foreground">{title.cast.join(", ")}</p>
+            <p className="text-sm text-muted-foreground">
+              {title.cast.map((name, i) => (
+                <span key={name}>
+                  <Link href={`/person/${encodeURIComponent(name)}`} className="hover:text-accent hover:underline">
+                    {name}
+                  </Link>
+                  {i < title.cast.length - 1 ? ", " : ""}
+                </span>
+              ))}
+              {title.director && (
+                <>
+                  {title.cast.length > 0 ? " · " : ""}Dir.{" "}
+                  <Link href={`/person/${encodeURIComponent(title.director)}`} className="hover:text-accent hover:underline">
+                    {title.director}
+                  </Link>
+                </>
+              )}
+            </p>
           </div>
         )}
 
@@ -112,22 +140,22 @@ export function TitleDetailContent({ title }: { title: Title }) {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-primary to-accent px-4 py-2 text-xs font-semibold text-white shadow-md shadow-primary/20 hover:opacity-90"
                 >
-                  {t("title.watchOn")} {PLATFORM_LABELS[p] ?? p} <ExternalLink className="h-3 w-3" />
+                  {t("title.watchOn")} {PLATFORM_LABELS[p] ?? p}
+                  {formatStartingPrice(p) && <span className="opacity-75">· {formatStartingPrice(p)}*</span>}
+                  <ExternalLink className="h-3 w-3" />
                 </a>
               ))}
 
-            {title.trailerUrl && (
-              <button
-                onClick={() => {
-                  const videoId = extractYouTubeId(title.trailerUrl!);
-                  if (videoId) playTrailer(videoId, title.title);
-                  else window.open(title.trailerUrl!, "_blank", "noopener,noreferrer");
-                }}
-                className="inline-flex items-center gap-1.5 rounded-full border border-[hsl(var(--foreground)/0.12)] bg-[hsl(var(--foreground)/0.02)] px-4 py-2 text-xs font-semibold hover:bg-[hsl(var(--foreground)/0.07)]"
-              >
-                <Film className="h-3.5 w-3.5" /> {t("title.watchTrailer")}
-              </button>
-            )}
+            <button
+              onClick={() => {
+                const action = getTrailerAction(title.title, title.trailerUrl);
+                if (action.kind === "play") playTrailer(action.videoId, title.title);
+                else window.open(action.url, "_blank", "noopener,noreferrer");
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[hsl(var(--foreground)/0.12)] bg-[hsl(var(--foreground)/0.02)] px-4 py-2 text-xs font-semibold hover:bg-[hsl(var(--foreground)/0.07)]"
+            >
+              <Film className="h-3.5 w-3.5" /> {title.trailerUrl ? t("title.watchTrailer") : t("title.searchTrailer")}
+            </button>
 
             {isUpcoming ? (
               <Button
@@ -155,11 +183,26 @@ export function TitleDetailContent({ title }: { title: Title }) {
                 <Bookmark className={cn("h-3.5 w-3.5", saved && "fill-current")} /> {saved ? t("title.saved") : t("title.addToWatchlist")}
               </Button>
             )}
+            {!isUpcoming && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggleWatched({ id: title.id, title: title.title, posterUrl: title.posterUrl })}
+                className={cn(watched && "border-emerald-500/50 text-emerald-400")}
+              >
+                <CheckCircle2 className={cn("h-3.5 w-3.5", watched && "fill-current")} /> {watched ? "Watched" : "Mark as Watched"}
+              </Button>
+            )}
             <ShareButton title={title.title} url={typeof window !== "undefined" ? `${window.location.origin}/title/${title.id}` : `/title/${title.id}`} />
           </div>
+          {!isUpcoming && title.platforms.some((p) => formatStartingPrice(p)) && (
+            <p className="mt-2 text-[10px] text-muted-foreground/70">*Approximate starting price, varies by plan/promo — check the platform directly for current pricing.</p>
+          )}
         </div>
 
         {!isUpcoming && <AiVerdictCard titleId={title.id} fallbackWatch={title.aiVerdictWatch} fallbackSkip={title.aiVerdictSkip} />}
+        {!isUpcoming && <CriticsTakeCard titleId={title.id} />}
+        {!isUpcoming && <MoreLikeThis current={title} />}
 
         {!isUpcoming && <ReviewsSection titleId={title.id} />}
       </div>

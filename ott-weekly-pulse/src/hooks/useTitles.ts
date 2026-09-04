@@ -8,14 +8,15 @@ async function fetchJson<T>(url: string): Promise<T> {
   return res.json();
 }
 
-export function useWeeks() {
+export function useWeeks(initialData?: WeekMeta[]) {
   return useQuery({
     queryKey: ["weeks"],
-    queryFn: () => fetchJson<{ weeks: WeekMeta[] }>("/api/weeks").then((d) => d.weeks)
+    queryFn: () => fetchJson<{ weeks: WeekMeta[] }>("/api/weeks").then((d) => d.weeks),
+    initialData
   });
 }
 
-export function useTitles(weekId: string | undefined, filters: TitleFilters) {
+export function useTitles(weekId: string | undefined, filters: TitleFilters, initialData?: { titles: Title[]; total: number }) {
   const params = new URLSearchParams();
   if (weekId) params.set("weekId", weekId);
   if (filters.type && filters.type !== "ALL") params.set("type", filters.type);
@@ -27,7 +28,8 @@ export function useTitles(weekId: string | undefined, filters: TitleFilters) {
 
   return useQuery({
     queryKey: ["titles", weekId, filters],
-    queryFn: () => fetchJson<{ titles: Title[]; total: number }>(`/api/titles?${params.toString()}`)
+    queryFn: () => fetchJson<{ titles: Title[]; total: number }>(`/api/titles?${params.toString()}`),
+    initialData
   });
 }
 

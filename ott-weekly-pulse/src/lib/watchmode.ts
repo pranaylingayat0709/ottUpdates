@@ -12,7 +12,15 @@ import "server-only";
 import type { Genre, Platform, Title, OriginalLanguage } from "@/lib/types";
 
 const WATCHMODE_BASE_URL = "https://api.watchmode.com/v1";
-const REVALIDATE_SECONDS = 6 * 60 * 60; // 6 hours, via Vercel's persistent Data Cache
+// Watchmode's free tier caps at 2,500 requests/month. Each full refresh
+// costs roughly 1 (list-titles) + candidates*2 (sources + details per
+// title) calls. With the defaults below (18 candidates, 12h refresh):
+//   1 + 18*2 = 37 calls/refresh * 2 refreshes/day * 30 days = 2,220/month
+// — safely under budget with margin. Both knobs are configurable via env
+// vars if you want to trade quota headroom for fresher data (or vice
+// versa) without a code change.
+const REVALIDATE_SECONDS = Number(process.env.WATCHMODE_REVALIDATE_SECONDS) || 12 * 60 * 60;
+const CANDIDATE_LIMIT = Number(process.env.WATCHMODE_CANDIDATE_LIMIT) || 18;
 
 // A random stock photo masquerading as a poster is worse than an honest
 // "no art available" placeholder — see the matching comment in tmdb.ts.
@@ -145,7 +153,7 @@ async function listWeeklyTitles(weekStart: Date, weekEnd: Date): Promise<WmListI
     release_date_start: fmt(recentFrom),
     release_date_end: fmt(weekEnd),
     sort_by: "relevance_desc",
-    limit: "60"
+    limit: String(CANDIDATE_LIMIT)
   });
   return data?.titles ?? [];
 }

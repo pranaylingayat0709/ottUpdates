@@ -35,6 +35,7 @@ export const TRANSLATIONS: Record<Locale, Dict> = {
     "title.addToWatchlist": "Add to Watchlist",
     "title.saved": "Saved",
     "title.watchTrailer": "Watch Trailer",
+    "title.searchTrailer": "Search Trailer",
     "title.notifyMe": "Notify Me",
     "title.reminderSet": "Reminder Set",
     "recommendations.forYou": "Recommended For You",
@@ -44,6 +45,7 @@ export const TRANSLATIONS: Record<Locale, Dict> = {
     "reviews.postReview": "Post review",
     "aiVerdict.title": "Quick AI Verdict",
     "loadMore": "Load More",
+    "viewAll": "View All",
     "noResults": "No titles match your filters this week — try widening your search."
   },
   hi: {
@@ -68,6 +70,7 @@ export const TRANSLATIONS: Record<Locale, Dict> = {
     "title.addToWatchlist": "वॉचलिस्ट में जोड़ें",
     "title.saved": "सहेजा गया",
     "title.watchTrailer": "ट्रेलर देखें",
+    "title.searchTrailer": "ट्रेलर खोजें",
     "title.notifyMe": "मुझे सूचित करें",
     "title.reminderSet": "रिमाइंडर सेट",
     "recommendations.forYou": "आपके लिए अनुशंसित",
@@ -77,6 +80,7 @@ export const TRANSLATIONS: Record<Locale, Dict> = {
     "reviews.postReview": "समीक्षा पोस्ट करें",
     "aiVerdict.title": "त्वरित AI राय",
     "loadMore": "और देखें",
+    "viewAll": "सभी देखें",
     "noResults": "इस हफ़्ते आपके फ़िल्टर से कोई टाइटल मेल नहीं खाता — खोज को थोड़ा और खोलें।"
   },
   mr: {
@@ -101,6 +105,7 @@ export const TRANSLATIONS: Record<Locale, Dict> = {
     "title.addToWatchlist": "वॉचलिस्टमध्ये जोडा",
     "title.saved": "जतन केले",
     "title.watchTrailer": "ट्रेलर पाहा",
+    "title.searchTrailer": "ट्रेलर शोधा",
     "title.notifyMe": "मला सूचित करा",
     "title.reminderSet": "स्मरणपत्र सेट",
     "recommendations.forYou": "तुमच्यासाठी शिफारस केलेले",
@@ -110,6 +115,7 @@ export const TRANSLATIONS: Record<Locale, Dict> = {
     "reviews.postReview": "पुनरावलोकन पोस्ट करा",
     "aiVerdict.title": "त्वरित AI मत",
     "loadMore": "आणखी पाहा",
+    "viewAll": "सर्व पाहा",
     "noResults": "या आठवड्यात तुमच्या फिल्टरशी कोणतेही शीर्षक जुळत नाही — शोध थोडा व्यापक करा."
   }
 };

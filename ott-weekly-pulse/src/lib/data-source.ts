@@ -10,10 +10,12 @@ import { addDays } from "date-fns";
 import { MOCK_TITLES, type MockTitleSeed } from "@/data/mock-data";
 import { getAdjacentWeek, getCurrentWeekRange, getWeekLabel } from "@/lib/week";
 import type { Title, WeekMeta, TitleFilters, Review } from "@/lib/types";
-import { generateAiVerdict } from "@/lib/nvidia";
+import { generateAiVerdict, generateCriticsTake } from "@/lib/nvidia";
 import { fetchLiveTitlesForWeek, isLiveDataEnabled } from "@/lib/tmdb";
 import { fetchWatchmodeTitlesForWeek, isWatchmodeEnabled } from "@/lib/watchmode";
 import { kvGet, kvSet } from "@/lib/kv-cache";
+import { getOverrides } from "@/lib/admin-overrides";
+import { addCommunityRating, getCommunityRatings, aggregateToScore } from "@/lib/community-ratings";
 
 // Deterministic id so the same (title, week) always resolves the same way.
 function makeId(title: string, weekStartIso: string): string {
@@ -122,21 +124,16 @@ export function listTitlesForWeekMock(weekId?: string): Title[] {
 // Cache (see the `next: { revalidate }` option in src/lib/tmdb.ts), so this
 // is a secondary, best-effort optimization rather than the source of truth.
 const LIVE_CACHE = new Map<string, { data: Title[]; expiresAt: number }>();
-const LIVE_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes — short enough that a code/config fix is visible quickly, long enough to avoid hammering the live API on every request
+// IMPORTANT: this only governs how often THIS APP re-runs its own
+// processing (admin overrides, community-rating merges) on top of
+// whatever raw data is available — it does NOT control how often new
+// titles actually get discovered from Watchmode/TMDB. That's bounded by
+// the fetch-level `revalidate` window in watchmode.ts/tmdb.ts (12h/6h by
+// default), which exists specifically to protect Watchmode's monthly
+// request quota. A newly-released title typically appears within that
+// window, not within these 10 minutes.
+const LIVE_CACHE_TTL_MS = 10 * 60 * 1000;
 
-// Ensures Hindi/Marathi content isn't crowded out by globally-popular
-// Hollywood titles in the final displayed set. Two layers of defense:
-//   1. Reorder so any Hindi/Marathi titles the live source DID return are
-//      guaranteed a strong position (up to ~70% of the final list).
-//   2. If the live source came back with few or zero Hindi/Marathi titles
-//      — which is possible regardless of query params, since neither
-//      Watchmode nor (in practice) TMDB reliably guarantee regional
-//      representation for a small/niche catalog — blend in real, curated
-//      Hindi/Marathi titles from the mock catalog to make up the gap.
-//      This is a hard guarantee rather than a hope: the product
-//      requirement ("majorly Hindi and Marathi") is met unconditionally,
-//      not contingent on how any particular live API happens to rank
-//      regional content on a given day.
 // Ensures Hindi/Marathi content isn't crowded out by globally-popular
 // Hollywood titles in the DISPLAY ORDER. Important: this must never
 // reduce the total number of real titles returned — it only reorders
@@ -169,17 +166,34 @@ function prioritizeIndianLanguages(titles: Title[], weekStart: Date, weekEnd: Da
   return [...indianPool, ...liveOthers];
 }
 
+// Adds any curated title (src/data/mock-data.ts) not already present in the
+// live results, by name — a second, independent data source stacked on top
+// of whichever live API(s) are configured, so a title missing from the live
+// feed for any reason (a niche title Watchmode/TMDB hasn't indexed yet, a
+// query-window miss, etc.) still shows up if it's one we've verified by
+// hand. This never removes anything the live source found; it only adds.
+function mergeCuratedTitles(liveTitles: Title[], weekStart: Date, weekEnd: Date): Title[] {
+  const existingNames = new Set(liveTitles.map((t) => t.title.toLowerCase()));
+  const additions = MOCK_TITLES.filter((seed) => !existingNames.has(seed.title.toLowerCase())).map((seed) =>
+    seedToTitle(seed, weekStart, weekEnd)
+  );
+  return [...liveTitles, ...additions];
+}
+
 /**
- * The catalog for a given week. Priority order:
- *   1. Watchmode (WATCHMODE_API_KEY) — a dedicated streaming-availability
- *      API, unaffected by TMDB's intermittent blocks in India.
- *   2. TMDB (TMDB_API_KEY) — kept as a second live option in case you're
- *      able to get a TMDB key (e.g. via VPN once) or deploy from a region
- *      where it isn't blocked.
- *   3. The manually-curated snapshot in src/data/mock-data.ts, if neither
- *      key is set or both live sources are unreachable.
+ * The catalog for a given week, assembled from every source configured:
+ *   1. Watchmode (WATCHMODE_API_KEY) and/or TMDB (TMDB_API_KEY) — both are
+ *      queried and merged (deduplicated by title) if both keys are set,
+ *      rather than one being a fallback for the other. More sources
+ *      queried = fewer real titles missed.
+ *   2. The curated snapshot in src/data/mock-data.ts is always merged in
+ *      on top (see mergeCuratedTitles) — a second, hand-verified source
+ *      that catches anything the live APIs miss, rather than only
+ *      appearing when live data is completely unavailable.
+ *   3. If NEITHER live source is configured at all, the curated snapshot
+ *      is used alone.
  */
-export async function listTitlesForWeek(weekId?: string): Promise<Title[]> {
+async function assembleTitlesForWeek(weekId?: string): Promise<Title[]> {
   if (!isWatchmodeEnabled() && !isLiveDataEnabled()) return listTitlesForWeekMock(weekId);
 
   const { weekStartDate, weekEndDate } = getWeekRangeById(weekId);
@@ -198,19 +212,96 @@ export async function listTitlesForWeek(weekId?: string): Promise<Title[]> {
     return kvCached;
   }
 
-  let live: Title[] | null = null;
-  if (isWatchmodeEnabled()) {
-    live = await fetchWatchmodeTitlesForWeek(weekStartDate, weekEndDate, resolvedWeekId);
-  }
-  if ((!live || live.length === 0) && isLiveDataEnabled()) {
-    live = await fetchLiveTitlesForWeek(weekStartDate, weekEndDate, resolvedWeekId);
-  }
-  if (!live || live.length === 0) return listTitlesForWeekMock(weekId);
+  const [watchmodeResults, tmdbResults] = await Promise.all([
+    isWatchmodeEnabled() ? fetchWatchmodeTitlesForWeek(weekStartDate, weekEndDate, resolvedWeekId) : Promise.resolve(null),
+    isLiveDataEnabled() ? fetchLiveTitlesForWeek(weekStartDate, weekEndDate, resolvedWeekId) : Promise.resolve(null)
+  ]);
 
-  const balanced = prioritizeIndianLanguages(live, weekStartDate, weekEndDate);
+  const seenNames = new Set<string>();
+  let live: Title[] = [];
+  for (const pool of [watchmodeResults ?? [], tmdbResults ?? []]) {
+    for (const t of pool) {
+      const key = t.title.toLowerCase();
+      if (seenNames.has(key)) continue;
+      seenNames.add(key);
+      live.push(t);
+    }
+  }
+
+  if (live.length === 0) return listTitlesForWeekMock(weekId);
+
+  const withCurated = mergeCuratedTitles(live, weekStartDate, weekEndDate);
+  const balanced = prioritizeIndianLanguages(withCurated, weekStartDate, weekEndDate);
   LIVE_CACHE.set(resolvedWeekId, { data: balanced, expiresAt: Date.now() + LIVE_CACHE_TTL_MS });
   await kvSet(kvKey, balanced, LIVE_CACHE_TTL_MS / 1000);
   return balanced;
+}
+
+/**
+ * The catalog for a given week, assembled from every configured source
+ * (see assembleTitlesForWeek), then with any admin curation overrides
+ * applied on top — hidden titles removed, poster overrides swapped in,
+ * and manually-pinned titles added. Overrides are checked fresh on every
+ * call regardless of the underlying data-source cache, so an admin change
+ * takes effect immediately without waiting for cache expiry.
+ */
+export async function listTitlesForWeek(weekId?: string): Promise<Title[]> {
+  const base = await assembleTitlesForWeek(weekId);
+  const withOverrides = await applyAdminOverrides(base, weekId);
+  return applyCommunityRatings(withOverrides);
+}
+
+// Same as listTitlesForWeek, but never throws — returns [] on any failure
+// instead. Used by multi-week aggregation pages (sitemap, best-of-month,
+// genre/person pages) so one bad week can't take down the whole page;
+// each week's contribution degrades independently.
+export async function safeListTitlesForWeek(weekId?: string): Promise<Title[]> {
+  try {
+    return await listTitlesForWeek(weekId);
+  } catch {
+    return [];
+  }
+}
+
+// Merges real review-derived community ratings on top of whatever base
+// communityScore/communityVotes the data source provided (usually 0 for a
+// brand-new live/curated title) — see community-ratings.ts for why this
+// is keyed by title name rather than titleId.
+async function applyCommunityRatings(titles: Title[]): Promise<Title[]> {
+  const ratings = await getCommunityRatings();
+  if (ratings.size === 0) return titles;
+  return titles.map((t) => {
+    const agg = ratings.get(t.title.toLowerCase());
+    if (!agg) return t;
+    const { score, votes } = aggregateToScore(agg);
+    return { ...t, communityScore: score, communityVotes: votes };
+  });
+}
+
+async function applyAdminOverrides(titles: Title[], weekId?: string): Promise<Title[]> {
+  const overrides = await getOverrides();
+  if (overrides.hiddenTitles.length === 0 && Object.keys(overrides.posterOverrides).length === 0 && overrides.pinnedTitles.length === 0) {
+    return titles;
+  }
+
+  const hiddenSet = new Set(overrides.hiddenTitles.map((n) => n.toLowerCase()));
+  let result = titles
+    .filter((t) => !hiddenSet.has(t.title.toLowerCase()))
+    .map((t) => {
+      const override = overrides.posterOverrides[t.title.toLowerCase()];
+      return override ? { ...t, posterUrl: override } : t;
+    });
+
+  if (overrides.pinnedTitles.length > 0) {
+    const { weekStartDate, weekEndDate } = getWeekRangeById(weekId);
+    const existingNames = new Set(result.map((t) => t.title.toLowerCase()));
+    const pinned = overrides.pinnedTitles
+      .filter((seed) => !existingNames.has(seed.title.toLowerCase()))
+      .map((seed) => seedToTitle(seed, weekStartDate, weekEndDate));
+    result = [...pinned, ...result];
+  }
+
+  return result;
 }
 
 export async function getTitleById(id: string): Promise<Title | undefined> {
@@ -254,17 +345,28 @@ export function listReviews(titleId: string): Review[] {
   return REVIEW_STORE.get(titleId) ?? [];
 }
 
-export function addReview(titleId: string, userName: string, rating: number, body: string): Review {
+export async function addReview(titleId: string, titleName: string, userName: string, rating: number, body: string): Promise<Review> {
   const review: Review = {
     id: makeId(`${titleId}-${userName}`, new Date().toISOString()),
     titleId,
     userName,
     rating,
     body,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    helpfulCount: 0
   };
   const existing = REVIEW_STORE.get(titleId) ?? [];
   REVIEW_STORE.set(titleId, [review, ...existing]);
+  await addCommunityRating(titleName, rating);
+  return review;
+}
+
+export function voteReviewHelpful(titleId: string, reviewId: string): Review | undefined {
+  const reviews = REVIEW_STORE.get(titleId);
+  if (!reviews) return undefined;
+  const review = reviews.find((r) => r.id === reviewId);
+  if (!review) return undefined;
+  review.helpfulCount += 1;
   return review;
 }
 
@@ -283,4 +385,21 @@ export async function getOrGenerateVerdict(title: Title) {
   });
   VERDICT_CACHE.set(title.id, verdict);
   return verdict;
+}
+
+// Same caching pattern for the longer-form "Critic's Take".
+const CRITICS_TAKE_CACHE = new Map<string, { paragraph: string }>();
+
+export async function getOrGenerateCriticsTake(title: Title) {
+  const cached = CRITICS_TAKE_CACHE.get(title.id);
+  if (cached) return cached;
+  const take = await generateCriticsTake({
+    title: title.title,
+    type: title.type,
+    synopsis: title.synopsis,
+    genres: title.genres,
+    imdbRating: title.imdbRating
+  });
+  CRITICS_TAKE_CACHE.set(title.id, take);
+  return take;
 }
