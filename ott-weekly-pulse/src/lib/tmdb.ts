@@ -125,22 +125,20 @@ const LANGUAGE_MAP: Record<string, OriginalLanguage> = {
   mr: "MARATHI"
 };
 
-// A random stock photo masquerading as a poster is worse than an honest
-// "no art available" placeholder — it looks like a real (wrong) poster
-// rather than a clearly-missing one. placehold.co generates a plain
-// solid-color graphic with text, not a photo, and works reliably with
-// next/image (unlike data: URIs, which the Image optimizer doesn't
-// consistently support).
-const NO_POSTER_PLACEHOLDER = "https://placehold.co/500x750/1a1a24/6a6a7a?text=Poster+Not+Available";
-
+// Empty string signals "no real poster" — the UI layer (PosterImage
+// component) renders a self-contained CSS/SVG fallback for this case with
+// zero network dependency. An earlier version pointed this at an external
+// placeholder service (placehold.co), which turned out to be unreliable
+// in some network contexts — the exact same category of risk as TMDB
+// being blocked in India. Never point this at an external URL again.
 function poster(path?: string | null, backdropPath?: string | null) {
   // Prefer the real poster; if TMDB has no poster art for this specific
   // entry yet (common for very recently added titles), fall back to the
   // backdrop image before giving up — a real backdrop crop is still real
-  // art for this title, unlike a random stock photo.
+  // art for this title, unlike an external placeholder.
   if (path) return `${IMAGE_BASE}/w500${path}`;
   if (backdropPath) return `${IMAGE_BASE}/w500${backdropPath}`;
-  return NO_POSTER_PLACEHOLDER;
+  return "";
 }
 function backdrop(path?: string | null) {
   return path ? `${IMAGE_BASE}/w1280${path}` : undefined;

@@ -37,12 +37,30 @@ export default async function Image({ params }: { params: { id: string } }) {
           fontFamily: "sans-serif"
         }}
       >
-        <img
-          src={title.posterUrl}
-          width={340}
-          height={510}
-          style={{ borderRadius: 24, objectFit: "cover", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}
-        />
+        {title.posterUrl ? (
+          <img
+            src={title.posterUrl}
+            width={340}
+            height={510}
+            style={{ borderRadius: 24, objectFit: "cover", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}
+          />
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              width: 340,
+              height: 510,
+              borderRadius: 24,
+              background: "#1a1a24",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#6a6a7a",
+              fontSize: 20
+            }}
+          >
+            No poster
+          </div>
+        )}
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", marginLeft: 56, flex: 1 }}>
           <div style={{ display: "flex", color: "#a78bfa", fontSize: 22, fontWeight: 600, marginBottom: 12 }}>OTT WEEKLY PULSE</div>
           <div style={{ display: "flex", color: "#fff", fontSize: 56, fontWeight: 800, lineHeight: 1.1, marginBottom: 20 }}>

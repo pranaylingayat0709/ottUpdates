@@ -4,7 +4,7 @@ import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { useQuery } from "@tanstack/react-query";
 import type { Title } from "@/lib/types";
 import { Bookmark, Star } from "lucide-react";
-import Image from "next/image";
+import { PosterImage } from "@/components/PosterImage";
 import Link from "next/link";
 
 export function WatchlistDrawer({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
@@ -36,7 +36,7 @@ export function WatchlistDrawer({ open, onOpenChange }: { open: boolean; onOpenC
             {titles.map((t) => (
               <div key={t.id} className="glass-card flex gap-3 p-2">
                 <Link href={`/title/${t.id}`} onClick={() => onOpenChange(false)} className="shrink-0">
-                  <Image src={t.posterUrl} alt={t.title} width={56} height={80} className="rounded-md object-cover" />
+                  <PosterImage src={t.posterUrl} alt={t.title} width={56} height={80} className="rounded-md object-cover" />
                 </Link>
                 <div className="min-w-0 flex-1">
                   <Link href={`/title/${t.id}`} onClick={() => onOpenChange(false)} className="line-clamp-1 text-sm font-semibold hover:text-accent">

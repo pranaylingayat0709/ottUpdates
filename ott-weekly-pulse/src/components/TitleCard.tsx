@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Bookmark, PlayCircle, Star } from "lucide-react";
@@ -7,16 +6,14 @@ import type { Title } from "@/lib/types";
 import { PLATFORM_LABELS } from "@/lib/types";
 import { cn, formatRuntime } from "@/lib/utils";
 import { EditorialBadgePill } from "@/components/EditorialBadgePill";
+import { PosterImage } from "@/components/PosterImage";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { useTrailerPlayer } from "@/hooks/useTrailerPlayer";
 import { getTrailerAction } from "@/lib/youtube";
 import { TitleModal } from "@/components/TitleModal";
 
-const FALLBACK_POSTER = "https://placehold.co/500x750/1a1a24/6a6a7a?text=Poster+Not+Available";
-
 export function TitleCard({ title, className }: { title: Title; className?: string }) {
   const [open, setOpen] = useState(false);
-  const [imgError, setImgError] = useState(false);
   const saved = useWatchlistStore((s) => s.isSaved(title.id));
   const toggle = useWatchlistStore((s) => s.toggle);
   const playTrailer = useTrailerPlayer((s) => s.play);
@@ -32,13 +29,12 @@ export function TitleCard({ title, className }: { title: Title; className?: stri
         transition={{ type: "spring", stiffness: 350, damping: 22 }}
       >
         <div className="relative aspect-[2/3] w-full overflow-hidden">
-          <Image
-            src={imgError || !title.posterUrl ? FALLBACK_POSTER : title.posterUrl}
+          <PosterImage
+            src={title.posterUrl}
             alt={title.title}
             fill
             sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 200px"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
-            onError={() => setImgError(true)}
           />
           <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
 

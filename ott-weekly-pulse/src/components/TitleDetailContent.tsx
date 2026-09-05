@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect } from "react";
 import { Bookmark, BellRing, CheckCircle2, Clapperboard, ExternalLink, Film, Languages, Tv2 } from "lucide-react";
@@ -8,6 +7,7 @@ import { PLATFORM_LABELS, GENRE_LABELS } from "@/lib/types";
 import { formatStartingPrice } from "@/lib/platform-pricing";
 import { cn, formatRuntime } from "@/lib/utils";
 import { EditorialBadgePill } from "@/components/EditorialBadgePill";
+import { PosterImage } from "@/components/PosterImage";
 import { RatingRow } from "@/components/RatingRow";
 import { AiVerdictCard } from "@/components/AiVerdictCard";
 import { CriticsTakeCard } from "@/components/CriticsTakeCard";
@@ -46,19 +46,29 @@ export function TitleDetailContent({ title }: { title: Title }) {
   return (
     <div>
       <div className="relative aspect-[16/8] w-full sm:aspect-[16/6]">
-        <Image src={title.backdropUrl || title.posterUrl || "https://placehold.co/1280x720/1a1a24/6a6a7a?text=Image+Not+Available"} alt={title.title} fill className="object-cover" priority />
+        <PosterImage src={title.backdropUrl || title.posterUrl} alt={title.title} fill className="object-cover" priority label="Image not available" />
         <div className="absolute inset-0 bg-gradient-to-t from-card via-card/60 to-transparent" />
       </div>
 
-      <div className="-mt-16 flex gap-4 px-5 sm:-mt-20 sm:px-8">
-        <Image
-          src={title.posterUrl || "https://placehold.co/500x750/1a1a24/6a6a7a?text=Poster+Not+Available"}
-          alt={title.title}
-          width={120}
-          height={180}
-          className="hidden shrink-0 rounded-xl border-2 border-card object-cover shadow-xl sm:block"
-        />
-        <div className="min-w-0 flex-1 pt-2 sm:pt-16">
+      {/* Only the poster thumbnail overlaps the backdrop (its own small
+          negative margin, for the visual flourish) — the badges/title/
+          metadata sit in normal flow with regular top padding, never
+          sharing that negative-margin coordinate space. This is
+          deliberate: an earlier version applied the negative margin to
+          the whole row (poster + text together), and the text ended up
+          partially clipped behind the backdrop's gradient at certain
+          content lengths. Keep these decoupled. */}
+      <div className="flex gap-4 px-5 pt-4 sm:px-8">
+        <div className="-mt-16 hidden shrink-0 sm:-mt-20 sm:block">
+          <PosterImage
+            src={title.posterUrl}
+            alt={title.title}
+            width={120}
+            height={180}
+            className="rounded-xl border-2 border-card object-cover shadow-xl"
+          />
+        </div>
+        <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap gap-1.5">
             {title.editorialBadges.map((b) => <EditorialBadgePill key={b} badge={b} />)}
             {isUpcoming && <span className="badge-pill bg-gradient-to-r from-sky-400 to-blue-500 text-white">Coming Soon</span>}

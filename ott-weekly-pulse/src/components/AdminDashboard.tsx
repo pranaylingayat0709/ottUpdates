@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { PosterImage } from "@/components/PosterImage";
 import { EyeOff, Eye, Save, LogOut, Pin, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Title } from "@/lib/types";
@@ -104,7 +104,7 @@ export function AdminDashboard() {
           {titles.map((t) => (
             <div key={t.id} className="glass-panel flex items-center gap-3 p-3">
               <div className="relative h-16 w-11 shrink-0 overflow-hidden rounded-md">
-                <Image src={t.posterUrl} alt={t.title} fill sizes="44px" className="object-cover" />
+                <PosterImage src={t.posterUrl} alt={t.title} fill sizes="44px" className="object-cover" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{t.title}</p>

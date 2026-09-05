@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import { PosterImage } from "@/components/PosterImage";
 import { ArrowLeft, TrendingUp } from "lucide-react";
 import { listWeeks, safeListTitlesForWeek } from "@/lib/data-source";
 import { PLATFORM_LABELS } from "@/lib/types";
@@ -75,7 +75,7 @@ export default async function Top10Page() {
                 </span>
                 <div className="glass-card relative z-10 w-24 shrink-0 overflow-hidden transition-transform group-hover:-translate-y-1">
                   <div className="relative aspect-[2/3] w-full">
-                    <Image src={t.posterUrl} alt={t.title} fill sizes="96px" className="object-cover" />
+                    <PosterImage src={t.posterUrl} alt={t.title} fill sizes="96px" className="object-cover" />
                   </div>
                 </div>
               </Link>

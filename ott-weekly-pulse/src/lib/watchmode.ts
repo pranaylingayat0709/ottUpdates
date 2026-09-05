@@ -22,9 +22,8 @@ const WATCHMODE_BASE_URL = "https://api.watchmode.com/v1";
 const REVALIDATE_SECONDS = Number(process.env.WATCHMODE_REVALIDATE_SECONDS) || 12 * 60 * 60;
 const CANDIDATE_LIMIT = Number(process.env.WATCHMODE_CANDIDATE_LIMIT) || 18;
 
-// A random stock photo masquerading as a poster is worse than an honest
-// "no art available" placeholder — see the matching comment in tmdb.ts.
-const NO_POSTER_PLACEHOLDER = "https://placehold.co/500x750/1a1a24/6a6a7a?text=Poster+Not+Available";
+// Empty string signals "no real poster" — see the matching comment in
+// tmdb.ts for why this is no longer an external placeholder-service URL.
 
 function apiKey(): string | undefined {
   return process.env.WATCHMODE_API_KEY;
@@ -211,7 +210,7 @@ async function toTitle(item: WmListItem, weekStart: Date, weekEnd: Date, weekId:
     runtimeMinutes: details.runtime_minutes ?? null,
     totalEpisodes: details.episode_count ?? null,
     seasonNumber: details.season_count ?? null,
-    posterUrl: details.poster || details.backdrop || NO_POSTER_PLACEHOLDER,
+    posterUrl: details.poster || details.backdrop || "",
     backdropUrl: details.backdrop ?? null,
     trailerUrl: details.trailer || null,
     synopsis: details.plot_overview || "Synopsis not available yet.",

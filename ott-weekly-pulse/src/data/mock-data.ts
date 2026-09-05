@@ -59,8 +59,15 @@ const tmdbImg = (path: string, size: "w500" | "w1280" = "w500") => `https://imag
 // Fallback for the small number of titles without a verified TMDB path yet.
 // Honest "no art yet" placeholder — a plain graphic, not a random stock
 // photo that could be mistaken for an actual (wrong) poster.
-const placeholderPoster = (label: string) => `https://placehold.co/500x750/1a1a24/6a6a7a?text=${encodeURIComponent(label)}`;
-const placeholderBackdrop = (label: string) => `https://placehold.co/1280x720/1a1a24/6a6a7a?text=${encodeURIComponent(label)}`;
+// Empty string signals "no real poster yet" — the UI (PosterImage
+// component) renders a self-contained CSS/SVG fallback for this, with
+// zero network dependency. Never point this at an external placeholder
+// service again — placehold.co turned out to be unreliable in some
+// network contexts, rendering as a blank box instead of a graceful
+// fallback (the exact same category of risk as TMDB being blocked in
+// India for some users).
+const placeholderPoster = (_label: string) => "";
+const placeholderBackdrop = (_label: string) => "";
 
 export const MOCK_TITLES: MockTitleSeed[] = [
   // ================= HINDI — MOVIES (real TMDB posters) =================

@@ -1,5 +1,5 @@
 "use client";
-import Image from "next/image";
+import { PosterImage } from "@/components/PosterImage";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { History } from "lucide-react";
@@ -33,7 +33,7 @@ export function ContinueWatching() {
             className="group glass-card w-28 shrink-0 overflow-hidden transition-transform hover:-translate-y-1 sm:w-32"
           >
             <div className="relative aspect-[2/3] w-full">
-              <Image src={item.posterUrl} alt={item.title} fill sizes="130px" className="object-cover" />
+              <PosterImage src={item.posterUrl} alt={item.title} fill sizes="130px" className="object-cover" />
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-2">
                 <p className="line-clamp-2 text-[11px] font-semibold text-white">{item.title}</p>
               </div>

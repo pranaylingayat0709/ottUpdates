@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Bookmark, Star } from "lucide-react";
@@ -7,15 +6,13 @@ import type { Title } from "@/lib/types";
 import { PLATFORM_LABELS, GENRE_LABELS } from "@/lib/types";
 import { cn, formatRuntime } from "@/lib/utils";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
+import { PosterImage } from "@/components/PosterImage";
 import { TitleModal } from "@/components/TitleModal";
-
-const FALLBACK_POSTER = "https://placehold.co/500x750/1a1a24/6a6a7a?text=Poster+Not+Available";
 
 // Compact single-line alternative to the poster-grid TitleCard — for
 // quickly scanning many titles at once rather than browsing visually.
 export function TitleListRow({ title }: { title: Title }) {
   const [open, setOpen] = useState(false);
-  const [imgError, setImgError] = useState(false);
   const saved = useWatchlistStore((s) => s.isSaved(title.id));
   const toggle = useWatchlistStore((s) => s.toggle);
 
@@ -28,14 +25,7 @@ export function TitleListRow({ title }: { title: Title }) {
         transition={{ type: "spring", stiffness: 350, damping: 25 }}
       >
         <div className="relative h-16 w-11 shrink-0 overflow-hidden rounded-md">
-          <Image
-            src={imgError || !title.posterUrl ? FALLBACK_POSTER : title.posterUrl}
-            alt={title.title}
-            fill
-            sizes="44px"
-            className="object-cover"
-            onError={() => setImgError(true)}
-          />
+          <PosterImage src={title.posterUrl} alt={title.title} fill sizes="44px" className="object-cover" />
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{title.title}</p>

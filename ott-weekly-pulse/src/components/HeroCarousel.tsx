@@ -1,7 +1,6 @@
 "use client";
 import useEmblaCarousel from "embla-carousel-react";
 import { useCallback, useEffect, useState } from "react";
-import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Film, PlayCircle, Star } from "lucide-react";
 import type { Title } from "@/lib/types";
@@ -10,6 +9,7 @@ import { EditorialBadgePill } from "@/components/EditorialBadgePill";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { TitleModal } from "@/components/TitleModal";
+import { PosterImage } from "@/components/PosterImage";
 import { useI18n } from "@/components/LanguageProvider";
 import { useTrailerPlayer } from "@/hooks/useTrailerPlayer";
 import { getTrailerAction } from "@/lib/youtube";
@@ -67,13 +67,14 @@ export function HeroCarousel({ titles }: { titles: Title[] }) {
             <div key={title.id} className="relative min-w-0 flex-[0_0_100%] px-4 sm:px-6 lg:px-8">
               <div className="relative aspect-[16/10] w-full overflow-hidden rounded-3xl border border-[hsl(var(--foreground)/0.1)] sm:aspect-[21/9]">
                 <div className={cn("absolute inset-0", selected === i && "animate-[kenburns_9s_ease-out_forwards]")}>
-                  <Image
-                    src={title.backdropUrl || title.posterUrl || "https://placehold.co/1280x720/1a1a24/6a6a7a?text=Image+Not+Available"}
+                  <PosterImage
+                    src={title.backdropUrl || title.posterUrl}
                     alt={title.title}
                     fill
                     priority={i === 0}
                     sizes="100vw"
                     className="object-cover"
+                    label="Image not available"
                   />
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
