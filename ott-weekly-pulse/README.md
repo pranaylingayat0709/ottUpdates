@@ -160,6 +160,12 @@ A password-protected page at `/admin` — not a general CMS, just a narrow set o
 
 Public POST endpoints (reviews, newsletter signup, watchlist sync, push subscribe, admin login) are now rate-limited per IP (`src/lib/rate-limit.ts`) — e.g. 5 reviews/minute, 5 admin login attempts per 5 minutes. Uses Vercel KV if configured for cross-instance consistency, otherwise in-memory (rate-limits per serverless instance only — better than nothing, same honest limitation as other optional-KV stores here). Reviews also get a basic spam/profanity pattern check before being accepted.
 
+## Freshness & admin visibility
+
+- **"Still Streaming" badge** (`src/lib/freshness.ts`) — shown on a title card when its real release date falls outside the currently-displayed week (i.e., it's surfacing because it's still popular, not because it's brand new). Genuinely new titles show no badge, keeping the common case visually clean rather than tagging every single card.
+- **Curated pool staleness warning** (`/api/admin/curated-status`, surfaced in the `/admin` dashboard) — reports how many curated titles in `mock-data.ts` are actually dated for the current week. Once that hits zero, the admin panel shows an amber warning so it's obvious when the curated safety net needs a fresh research pass, rather than silently doing nothing.
+- **Skeleton loading states** for `/top-10` and `/best-of-month` via Next.js's `loading.tsx` convention, matching the homepage's existing skeleton style.
+
 ## Recommendations, editorial depth & community signals
 
 - **Top 10 charts** (`/top-10`) — a Netflix-style numbered chart, overall plus per-language cuts (Hindi/Marathi/English) so regional charts get their own spotlight instead of being buried under whatever's globally most popular. Ranked by a popularity score blending community rating and vote volume.
@@ -231,6 +237,8 @@ Subscriber emails are stored the same optional-KV-or-in-memory way as push subsc
 **A note on Vercel Cron limits:** both cron jobs are scheduled for at most once per day (`vercel.json`), which should work on Vercel's free Hobby tier — Hobby plans generally restrict cron jobs to a daily cadence. If you're on Pro and want the reminder check to run more often than once a day, you can tighten the schedule in `vercel.json`.
 
 ## Known limitations to keep in mind
+
+- **Curated titles are date-anchored and will age out — this is deliberate.** Every entry in `mock-data.ts` has a `weekStartDate` (the real Friday it belongs to). When live data is active (Watchmode/TMDB), `mergeCuratedTitles()` only injects a curated title into the week it's actually dated for — not into every future week forever. This fixes a real bug an earlier version had: without this date gate, a title researched for one week kept reappearing as "new" in every subsequent week indefinitely, since its release date was silently recomputed against whatever week was being viewed. The trade-off: once real time moves past a curated title's dated week, it stops appearing in the live-merge path entirely (it still shows in pure mock-fallback mode, which recomputes dates freely since it has no live data to defer to). **If you want the curated safety net to keep meaningfully supplementing live results, refresh `mock-data.ts` with newer research periodically** — the same process used to build it originally (real trade-press sourcing, verified TMDB poster paths). The separate Hindi/Marathi minimum-representation guarantee (`prioritizeIndianLanguages`) is NOT date-gated, by design — it's a rare last-resort safety net for when live data returns near-zero Indian-language content on a given day, not a standing weekly injection, so the "old title looks new" risk doesn't apply there the same way.
 
 - **Poster art:** most titles in `mock-data.ts` now use real TMDB poster images (`image.tmdb.org` URLs, verified during research), not AI-generated or placeholder photos. A handful of English-language titles (Dark Matter, Michael, The Whisper Man, Adults) and the Marathi title (Aata Hou De Dhingana) don't have a verified TMDB image path captured yet, so those specific five still fall back to placeholder art — wire up a live TMDB or Watchmode key to get real posters automatically for every title, including these.
 

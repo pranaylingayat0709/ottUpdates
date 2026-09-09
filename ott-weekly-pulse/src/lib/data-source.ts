@@ -149,6 +149,14 @@ function prioritizeIndianLanguages(titles: Title[], weekStart: Date, weekEnd: Da
   // Only supplement with curated titles if the live source found very
   // little Indian content — and even then, this ADDS titles, it never
   // removes any of the real ones the live source returned.
+  //
+  // Deliberately NOT date-gated to a specific week (unlike
+  // mergeCuratedTitles above): this is a last-resort guarantee against
+  // the live feed returning near-zero Hindi/Marathi content on a given
+  // day, which is a real, recurring risk — not a "show everything"
+  // completeness pass. It only activates when genuinely needed (gap > 0),
+  // so it doesn't have the same "old title looks new forever" problem —
+  // it's a rare fallback, not a standing weekly injection.
   const minimumIndian = 6;
   const gap = minimumIndian - liveIndian.length;
 
@@ -174,9 +182,15 @@ function prioritizeIndianLanguages(titles: Title[], weekStart: Date, weekEnd: Da
 // hand. This never removes anything the live source found; it only adds.
 function mergeCuratedTitles(liveTitles: Title[], weekStart: Date, weekEnd: Date): Title[] {
   const existingNames = new Set(liveTitles.map((t) => t.title.toLowerCase()));
-  const additions = MOCK_TITLES.filter((seed) => !existingNames.has(seed.title.toLowerCase())).map((seed) =>
-    seedToTitle(seed, weekStart, weekEnd)
-  );
+  const queryWeekIso = weekStart.toISOString().slice(0, 10);
+  // Only inject a curated title into the week it actually belongs to — a
+  // seed researched for the 28 Aug week must not resurface as "new" in
+  // every subsequent week forever. It's added on top of live results only
+  // while its own week is the one being viewed; after that it ages out
+  // naturally, exactly like a real released title would.
+  const additions = MOCK_TITLES.filter(
+    (seed) => seed.weekStartDate === queryWeekIso && !existingNames.has(seed.title.toLowerCase())
+  ).map((seed) => seedToTitle(seed, weekStart, weekEnd));
   return [...liveTitles, ...additions];
 }
 

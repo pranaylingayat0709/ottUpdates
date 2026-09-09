@@ -6,6 +6,8 @@ import type { Title } from "@/lib/types";
 import { PLATFORM_LABELS } from "@/lib/types";
 import { cn, formatRuntime } from "@/lib/utils";
 import { EditorialBadgePill } from "@/components/EditorialBadgePill";
+import { isNewThisWeek } from "@/lib/freshness";
+import { Clock3 } from "lucide-react";
 import { PosterImage } from "@/components/PosterImage";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { useTrailerPlayer } from "@/hooks/useTrailerPlayer";
@@ -74,6 +76,11 @@ export function TitleCard({ title, className }: { title: Title; className?: stri
           )}
 
           <div className="absolute inset-x-0 bottom-0 space-y-1 p-3">
+            {!isNewThisWeek(title) && (
+              <span className="mb-0.5 inline-flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-white/80 backdrop-blur-sm">
+                <Clock3 className="h-2.5 w-2.5" /> Still Streaming
+              </span>
+            )}
             <p className="line-clamp-1 text-sm font-bold text-white">{title.title}</p>
             <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-white/70">
               <span>

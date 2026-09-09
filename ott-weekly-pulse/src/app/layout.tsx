@@ -27,6 +27,9 @@ export const metadata: Metadata = {
   icons: {
     icon: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
     apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }]
+  },
+  verification: {
+    google: "-Phi7j5fz9Pcg0v2SOFivrnF7dfME3OVVc-TwRx7QQM"
   }
 };
 

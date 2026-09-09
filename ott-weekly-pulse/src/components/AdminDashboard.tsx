@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PosterImage } from "@/components/PosterImage";
-import { EyeOff, Eye, Save, LogOut, Pin, RefreshCw } from "lucide-react";
+import { EyeOff, Eye, Save, LogOut, Pin, RefreshCw, AlertTriangle, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Title } from "@/lib/types";
 
@@ -10,6 +10,13 @@ interface Overrides {
   hiddenTitles: string[];
   posterOverrides: Record<string, string>;
   pinnedTitles: unknown[];
+}
+
+interface CuratedStatus {
+  totalSeeds: number;
+  activeThisWeek: number;
+  currentWeekLabel: string;
+  stale: boolean;
 }
 
 // Owner-only curation panel — lets you fix live-data issues (hide a bad
@@ -23,15 +30,21 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [curatedStatus, setCuratedStatus] = useState<CuratedStatus | null>(null);
 
   async function load() {
     setLoading(true);
     try {
-      const [titlesRes, overridesRes] = await Promise.all([fetch("/api/titles"), fetch("/api/admin/overrides")]);
+      const [titlesRes, overridesRes, curatedRes] = await Promise.all([
+        fetch("/api/titles"),
+        fetch("/api/admin/overrides"),
+        fetch("/api/admin/curated-status")
+      ]);
       const titlesData = await titlesRes.json();
       const overridesData = await overridesRes.json();
       setTitles(titlesData.titles ?? []);
       setOverrides(overridesData);
+      if (curatedRes.ok) setCuratedStatus(await curatedRes.json());
     } finally {
       setLoading(false);
     }
@@ -89,6 +102,20 @@ export function AdminDashboard() {
           <Button variant="ghost" size="sm" onClick={logout}><LogOut className="h-3.5 w-3.5" /></Button>
         </div>
       </div>
+
+      {curatedStatus && (
+        <div
+          className={`mb-4 flex items-center gap-2 rounded-xl border p-3 text-xs ${
+            curatedStatus.stale ? "border-amber-500/40 bg-amber-500/10 text-amber-300" : "border-[hsl(var(--foreground)/0.1)] text-muted-foreground"
+          }`}
+        >
+          {curatedStatus.stale ? <AlertTriangle className="h-4 w-4 shrink-0" /> : <Database className="h-4 w-4 shrink-0" />}
+          <span>
+            Curated pool: <strong>{curatedStatus.activeThisWeek}</strong> of {curatedStatus.totalSeeds} titles active for {curatedStatus.currentWeekLabel}.
+            {curatedStatus.stale && " Zero curated titles are dated for the current week — consider a fresh research pass on mock-data.ts if live data ever falls back to it."}
+          </span>
+        </div>
+      )}
 
       {savedAt && <p className="mb-4 text-xs text-emerald-400">Saved — live for all visitors now.</p>}
       {overrides.pinnedTitles.length > 0 && (

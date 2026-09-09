@@ -8,6 +8,7 @@ import { cn, formatRuntime } from "@/lib/utils";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { PosterImage } from "@/components/PosterImage";
 import { TitleModal } from "@/components/TitleModal";
+import { isNewThisWeek } from "@/lib/freshness";
 
 // Compact single-line alternative to the poster-grid TitleCard — for
 // quickly scanning many titles at once rather than browsing visually.
@@ -28,7 +29,10 @@ export function TitleListRow({ title }: { title: Title }) {
           <PosterImage src={title.posterUrl} alt={title.title} fill sizes="44px" className="object-cover" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{title.title}</p>
+          <p className="truncate text-sm font-semibold">
+            {title.title}
+            {!isNewThisWeek(title) && <span className="ml-1.5 text-[9px] font-normal uppercase tracking-wide text-muted-foreground/70">· Still Streaming</span>}
+          </p>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
             <span>{title.type === "MOVIE" ? formatRuntime(title.runtimeMinutes) || "Movie" : "Series"}</span>
             <span>·</span>
