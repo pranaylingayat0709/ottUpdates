@@ -10,7 +10,7 @@ export const revalidate = 600;
 // aggregators, or anyone who wants to follow new releases without
 // visiting the site directly.
 export async function GET() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://ott-weekly-pulse.vercel.app";
+  const baseUrl = process.env.APP_URL ?? "https://ott-weekly-pulse.vercel.app";
   const weeks = listWeeks();
   const current = weeks.find((w) => w.isCurrent);
   const titles = current ? await safeListTitlesForWeek(current.id) : [];

@@ -20,7 +20,7 @@ import { GENRE_LABELS } from "@/lib/types";
 export const revalidate = 600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://ott-weekly-pulse.vercel.app";
+  const baseUrl = process.env.APP_URL ?? "https://ott-weekly-pulse.vercel.app";
   const weeks = listWeeks();
 
   const staticEntries: MetadataRoute.Sitemap = [

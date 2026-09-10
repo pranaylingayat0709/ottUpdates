@@ -20,7 +20,7 @@ function digestHtml(titles: Title[], weekLabel: string): string {
       (t) => `
       <tr>
         <td style="padding:12px 0;border-bottom:1px solid #2a2a35;">
-          <a href="${process.env.NEXT_PUBLIC_APP_URL ?? ""}/title/${t.id}" style="color:#fff;text-decoration:none;font-weight:600;font-size:15px;">${t.title}</a>
+          <a href="${process.env.APP_URL ?? ""}/title/${t.id}" style="color:#fff;text-decoration:none;font-weight:600;font-size:15px;">${t.title}</a>
           <div style="color:#9a9aa5;font-size:12px;margin-top:2px;">
             ${t.type === "MOVIE" ? "Movie" : t.type === "SERIES" ? "Web Series" : "Documentary"} · ${t.originalLanguage} · ${t.platforms.join(", ")}
           </div>
@@ -37,7 +37,7 @@ function digestHtml(titles: Title[], weekLabel: string): string {
       <table width="100%" style="border-collapse:collapse;">${rows}</table>
       <p style="color:#6a6a75;font-size:11px;margin-top:24px;">
         You're receiving this because you subscribed at OTT Weekly Pulse.
-        <a href="${process.env.NEXT_PUBLIC_APP_URL ?? ""}" style="color:#8b5cf6;">Visit the site</a>
+        <a href="${process.env.APP_URL ?? ""}" style="color:#8b5cf6;">Visit the site</a>
       </p>
     </div>
   </div>`;

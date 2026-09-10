@@ -25,7 +25,7 @@ export default async function Page() {
     itemListElement: titles.slice(0, 20).map((t, i) => ({
       "@type": "ListItem",
       position: i + 1,
-      url: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/title/${t.id}`,
+      url: `${process.env.APP_URL ?? ""}/title/${t.id}`,
       name: t.title
     }))
   };
