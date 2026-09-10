@@ -150,13 +150,17 @@ function prioritizeIndianLanguages(titles: Title[], weekStart: Date, weekEnd: Da
   // little Indian content — and even then, this ADDS titles, it never
   // removes any of the real ones the live source returned.
   //
-  // Deliberately NOT date-gated to a specific week (unlike
-  // mergeCuratedTitles above): this is a last-resort guarantee against
-  // the live feed returning near-zero Hindi/Marathi content on a given
-  // day, which is a real, recurring risk — not a "show everything"
-  // completeness pass. It only activates when genuinely needed (gap > 0),
-  // so it doesn't have the same "old title looks new forever" problem —
-  // it's a rare fallback, not a standing weekly injection.
+  // NOW date-gated, same as mergeCuratedTitles — an earlier version left
+  // this ungated on the theory that it would rarely trigger, but in
+  // practice live Hindi/Marathi supply is thin often enough that it fired
+  // most weeks, meaning the same 2-3 curated Hindi titles (Alpha, Bandar,
+  // Babita Singh Reporting) kept reappearing indefinitely with their
+  // dates silently recomputed — exactly the "content never changes" bug
+  // this project has now hit twice. Accuracy wins: if a curated title
+  // isn't dated for the week being viewed, it does not show, even if
+  // that means fewer Hindi/Marathi titles some weeks than the old
+  // "guarantee minimum 6" behavior promised.
+  const queryWeekIso = weekStart.toISOString().slice(0, 10);
   const minimumIndian = 6;
   const gap = minimumIndian - liveIndian.length;
 
@@ -164,7 +168,10 @@ function prioritizeIndianLanguages(titles: Title[], weekStart: Date, weekEnd: Da
   if (gap > 0) {
     const usedTitles = new Set(liveIndian.map((t) => t.title.toLowerCase()));
     const mockIndianSeeds = MOCK_TITLES.filter(
-      (s) => (s.originalLanguage === "HINDI" || s.originalLanguage === "MARATHI") && !usedTitles.has(s.title.toLowerCase())
+      (s) =>
+        (s.originalLanguage === "HINDI" || s.originalLanguage === "MARATHI") &&
+        s.weekStartDate === queryWeekIso &&
+        !usedTitles.has(s.title.toLowerCase())
     );
     const supplemented = mockIndianSeeds.slice(0, gap).map((seed) => seedToTitle(seed, weekStart, weekEnd));
     indianPool = [...liveIndian, ...supplemented];
