@@ -2,26 +2,32 @@ import type { MetadataRoute } from "next";
 import { listWeeks, safeListTitlesForWeek } from "@/lib/data-source";
 import { GENRE_LABELS } from "@/lib/types";
 
-// Auto-generated from the live catalog — every title detail page across
-// every currently-tracked week (archive + current + upcoming) gets a
-// sitemap entry, so search engines can discover and index them without
-// needing every page to be linked from the homepage. Genre pages are also
-// included (a fixed, stable set of 14) — person pages are deliberately
-// left out since names change weekly and offer less individual page value;
-// Google will still discover them via the internal links from title pages.
+// Auto-generated from the live catalog. Only the CURRENT week (plus the
+// upcoming preview week) gets individual title-page entries — NOT every
+// archived week. Historical weeks are still browsable on the site itself
+// (via the week selector), just not pushed to search engines as separate
+// indexable URLs.
+//
+// Why: when a live source has no real data for a past week (which is
+// common — most live APIs aren't built to answer "what was airing 3
+// weeks ago"), the app falls back to showing the curated catalog
+// relabeled with that week's dates. Submitting every archived week to
+// the sitemap meant Google was being handed the same ~19 curated titles
+// repeated across 4+ different URLs with different fake dates — textbook
+// near-duplicate content, which actively hurts SEO rather than helping
+// it. Scoping to current + upcoming avoids that entirely, since those
+// two are the only weeks guaranteed to reflect genuinely distinct
+// content for their specific dates.
 //
 // IMPORTANT: without a revalidate window, this route tries to regenerate
 // from scratch on every single request — including Google's own crawl
-// attempts. Combined with awaiting 6 weeks of (potentially live-API-backed)
-// data sequentially, that's easily enough latency to blow past Vercel's
-// serverless function timeout, which shows up in Search Console as
-// "Couldn't fetch." Fixed by caching this route and fetching all weeks in
-// parallel instead of one at a time.
+// attempts, which is easily enough latency to blow past Vercel's
+// serverless function timeout ("Couldn't fetch" in Search Console).
 export const revalidate = 600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.APP_URL ?? "https://ott-weekly-pulse.vercel.app";
-  const weeks = listWeeks();
+  const weeks = listWeeks().filter((w) => w.isCurrent || new Date(w.weekStartDate) > new Date());
 
   const staticEntries: MetadataRoute.Sitemap = [
     { url: baseUrl, changeFrequency: "daily", priority: 1 },
@@ -33,14 +39,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }))
   ];
 
-  // Fetch every week's titles concurrently rather than one at a time —
-  // the slowest single week determines total latency instead of the sum
-  // of all of them.
   const perWeekTitles = await Promise.all(weeks.map((week) => safeListTitlesForWeek(week.id)));
 
   const titleEntries: MetadataRoute.Sitemap = [];
+  const seenNames = new Set<string>();
   weeks.forEach((week, i) => {
     for (const title of perWeekTitles[i]) {
+      // Defensive de-dupe by name too, in case the same curated title
+      // ever appears in both current and upcoming (shouldn't happen given
+      // the date-gating elsewhere, but cheap insurance against
+      // duplicate-content sitemap entries).
+      const key = title.title.toLowerCase();
+      if (seenNames.has(key)) continue;
+      seenNames.add(key);
       titleEntries.push({
         url: `${baseUrl}/title/${title.id}`,
         lastModified: title.releaseDate,
