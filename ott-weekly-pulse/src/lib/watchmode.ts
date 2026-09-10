@@ -139,11 +139,16 @@ async function wmFetch<T>(path: string, params: Record<string, string>): Promise
 }
 
 async function listWeeklyTitles(weekStart: Date, weekEnd: Date): Promise<WmListItem[]> {
-  // Same honest limitation as the TMDB path: no exact per-platform digital
-  // premiere date, so we bias toward a recent window and let popularity
-  // sort do the rest.
+  // Sort by release_date_desc (newest first), not relevance/popularity —
+  // this is a WEEKLY RELEASE calendar, and sorting by broad relevance let
+  // an already-popular back-catalog title dominate the top N slots for
+  // multiple weeks running, crowding out genuinely new releases (the
+  // exact "same titles every week" complaint this fixes). Lookback window
+  // tightened from 21 to 10 days for the same reason — a title has to be
+  // fairly recent to plausibly still be "this week's" release, not just
+  // recent-ish.
   const recentFrom = new Date(weekStart);
-  recentFrom.setDate(recentFrom.getDate() - 21);
+  recentFrom.setDate(recentFrom.getDate() - 10);
 
   const data = await wmFetch<WmListResponse>("/list-titles/", {
     types: "movie,tv_series,tv_miniseries",
@@ -151,7 +156,7 @@ async function listWeeklyTitles(weekStart: Date, weekEnd: Date): Promise<WmListI
     regions: "IN",
     release_date_start: fmt(recentFrom),
     release_date_end: fmt(weekEnd),
-    sort_by: "relevance_desc",
+    sort_by: "release_date_desc",
     limit: String(CANDIDATE_LIMIT)
   });
   return data?.titles ?? [];

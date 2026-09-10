@@ -204,9 +204,13 @@ async function getTrailerUrl(id: number, mediaType: "movie" | "tv"): Promise<str
 
 async function discoverMovies(weekStart: Date, weekEnd: Date): Promise<TmdbMovieResult[]> {
   // Recent window biased toward this week, since TMDB has no per-platform
-  // digital-premiere-date field to filter on exactly.
+  // digital-premiere-date field to filter on exactly. Sorted by newest
+  // release first (not popularity) — popularity sorting let an
+  // already-popular back-catalog title dominate the top N results across
+  // multiple weeks running, which looked like "the catalog never updates."
+  // Window tightened from 21 to 10 days for the same reason.
   const recentFrom = new Date(weekStart);
-  recentFrom.setDate(recentFrom.getDate() - 21);
+  recentFrom.setDate(recentFrom.getDate() - 10);
 
   // Run separate queries per language instead of one global-popularity
   // query — a single popularity-sorted call is dominated by Hollywood
@@ -217,7 +221,7 @@ async function discoverMovies(weekStart: Date, weekEnd: Date): Promise<TmdbMovie
     region: "IN",
     watch_region: "IN",
     with_watch_monetization_types: "flatrate",
-    sort_by: "popularity.desc",
+    sort_by: "primary_release_date.desc",
     "primary_release_date.gte": fmt(recentFrom),
     "primary_release_date.lte": fmt(weekEnd),
     "vote_count.gte": "2"
@@ -244,12 +248,12 @@ async function discoverMovies(weekStart: Date, weekEnd: Date): Promise<TmdbMovie
 
 async function discoverTv(weekStart: Date, weekEnd: Date): Promise<TmdbTvResult[]> {
   const recentFrom = new Date(weekStart);
-  recentFrom.setDate(recentFrom.getDate() - 21);
+  recentFrom.setDate(recentFrom.getDate() - 10);
 
   const baseParams = {
     watch_region: "IN",
     with_watch_monetization_types: "flatrate",
-    sort_by: "popularity.desc",
+    sort_by: "first_air_date.desc",
     "first_air_date.gte": fmt(recentFrom),
     "first_air_date.lte": fmt(weekEnd),
     "vote_count.gte": "1"
