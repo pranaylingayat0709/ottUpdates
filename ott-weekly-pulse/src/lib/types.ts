@@ -72,6 +72,12 @@ export interface Title {
   heroRank?: number | null;
 }
 
+export interface SubRatings {
+  story: number;
+  acting: number;
+  pacing: number;
+}
+
 export interface Review {
   id: string;
   titleId: string;
@@ -80,6 +86,9 @@ export interface Review {
   body: string;
   createdAt: string;
   helpfulCount: number;
+  unhelpfulCount: number;
+  verifiedWatch: boolean; // true if the reviewer had this title in their Watched diary when posting
+  subRatings?: SubRatings; // optional — story/acting/pacing breakdown alongside the overall score
 }
 
 export interface TitleFilters {

@@ -1,19 +1,24 @@
 "use client";
-import { useQuery } from "@tanstack/react-query";
 import { Layers } from "lucide-react";
 import type { Title } from "@/lib/types";
 import { TitleCard } from "@/components/TitleCard";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useTitles, DEFAULT_TITLE_FILTERS } from "@/hooks/useTitles";
 
 // Per-title "More Like This" — genre + cast overlap against the current
 // week's catalog, distinct from the homepage's watchlist-driven
 // RecommendedForYou (this one is anchored to whichever title you're
 // currently looking at, standard on any streaming guide detail page).
+//
+// Uses the SAME useTitles hook + default-filters shape as the homepage
+// dashboard, rather than its own ad-hoc fetch — when you open a title's
+// detail view from the homepage (the common case), this query key
+// matches one TanStack Query already has cached, so it reads instantly
+// from cache instead of firing a second, functionally-identical network
+// request for the same week's full catalog.
 export function MoreLikeThis({ current }: { current: Title }) {
-  const { data: titles = [] } = useQuery({
-    queryKey: ["titles", current.weekId, "all"],
-    queryFn: () => fetch(`/api/titles?weekId=${current.weekId}`).then((r) => r.json()).then((d) => d.titles as Title[])
-  });
+  const { data } = useTitles(current.weekId, DEFAULT_TITLE_FILTERS);
+  const titles = data?.titles ?? [];
 
   const similar = titles
     .filter((t) => t.id !== current.id)

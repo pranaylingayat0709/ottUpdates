@@ -6,7 +6,15 @@ import { z } from "zod";
 const ReviewSchema = z.object({
   userName: z.string().min(1).max(60),
   rating: z.number().min(0).max(10),
-  body: z.string().min(3).max(1000)
+  body: z.string().min(3).max(1000),
+  verifiedWatch: z.boolean().optional(),
+  subRatings: z
+    .object({
+      story: z.number().min(0).max(10),
+      acting: z.number().min(0).max(10),
+      pacing: z.number().min(0).max(10)
+    })
+    .optional()
 });
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
@@ -31,6 +39,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "Review couldn't be posted." }, { status: 400 });
   }
 
-  const review = await addReview(params.id, title.title, parsed.data.userName, parsed.data.rating, parsed.data.body);
+  const review = await addReview(params.id, title.title, parsed.data.userName, parsed.data.rating, parsed.data.body, {
+    verifiedWatch: parsed.data.verifiedWatch,
+    subRatings: parsed.data.subRatings
+  });
   return NextResponse.json({ review }, { status: 201 });
 }

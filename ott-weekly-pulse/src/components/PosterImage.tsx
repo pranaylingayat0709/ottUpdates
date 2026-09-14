@@ -2,7 +2,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { Film } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, blurDataUrl } from "@/lib/utils";
 
 interface PosterImageProps {
   src?: string | null;
@@ -13,6 +13,7 @@ interface PosterImageProps {
   sizes?: string;
   className?: string;
   priority?: boolean;
+  quality?: number;
   label?: string;
 }
 
@@ -24,7 +25,7 @@ interface PosterImageProps {
 // India). This renders a pure CSS/SVG fallback with zero network
 // dependency whenever there's no real image, or when a real image URL
 // fails to load.
-export function PosterImage({ src, alt, fill, width, height, sizes, className, priority, label = "Poster not available" }: PosterImageProps) {
+export function PosterImage({ src, alt, fill, width, height, sizes, className, priority, quality, label = "Poster not available" }: PosterImageProps) {
   const [failed, setFailed] = useState(false);
   const showFallback = !src || failed;
 
@@ -51,8 +52,11 @@ export function PosterImage({ src, alt, fill, width, height, sizes, className, p
         alt={alt}
         fill
         sizes={sizes}
+        quality={quality}
         className={className}
         priority={priority}
+        placeholder="blur"
+        blurDataURL={blurDataUrl()}
         onError={() => setFailed(true)}
       />
     );
@@ -64,8 +68,11 @@ export function PosterImage({ src, alt, fill, width, height, sizes, className, p
       alt={alt}
       width={width}
       height={height}
+      quality={quality}
       className={className}
       priority={priority}
+      placeholder="blur"
+      blurDataURL={blurDataUrl()}
       onError={() => setFailed(true)}
     />
   );

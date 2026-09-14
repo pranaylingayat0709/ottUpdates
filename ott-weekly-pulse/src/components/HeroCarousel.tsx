@@ -72,7 +72,8 @@ export function HeroCarousel({ titles }: { titles: Title[] }) {
                     alt={title.title}
                     fill
                     priority={i === 0}
-                    sizes="100vw"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1280px"
+                    quality={70}
                     className="object-cover"
                     label="Image not available"
                   />

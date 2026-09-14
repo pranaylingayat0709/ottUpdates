@@ -9,7 +9,7 @@ import "server-only";
 import { addDays } from "date-fns";
 import { MOCK_TITLES, type MockTitleSeed } from "@/data/mock-data";
 import { getAdjacentWeek, getCurrentWeekRange, getWeekLabel } from "@/lib/week";
-import type { Title, WeekMeta, TitleFilters, Review } from "@/lib/types";
+import type { Title, WeekMeta, TitleFilters, Review, SubRatings } from "@/lib/types";
 import { generateAiVerdict, generateCriticsTake } from "@/lib/nvidia";
 import { fetchLiveTitlesForWeek, isLiveDataEnabled } from "@/lib/tmdb";
 import { fetchWatchmodeTitlesForWeek, isWatchmodeEnabled } from "@/lib/watchmode";
@@ -366,7 +366,14 @@ export function listReviews(titleId: string): Review[] {
   return REVIEW_STORE.get(titleId) ?? [];
 }
 
-export async function addReview(titleId: string, titleName: string, userName: string, rating: number, body: string): Promise<Review> {
+export async function addReview(
+  titleId: string,
+  titleName: string,
+  userName: string,
+  rating: number,
+  body: string,
+  options?: { verifiedWatch?: boolean; subRatings?: SubRatings }
+): Promise<Review> {
   const review: Review = {
     id: makeId(`${titleId}-${userName}`, new Date().toISOString()),
     titleId,
@@ -374,7 +381,10 @@ export async function addReview(titleId: string, titleName: string, userName: st
     rating,
     body,
     createdAt: new Date().toISOString(),
-    helpfulCount: 0
+    helpfulCount: 0,
+    unhelpfulCount: 0,
+    verifiedWatch: options?.verifiedWatch ?? false,
+    subRatings: options?.subRatings
   };
   const existing = REVIEW_STORE.get(titleId) ?? [];
   REVIEW_STORE.set(titleId, [review, ...existing]);
@@ -382,12 +392,13 @@ export async function addReview(titleId: string, titleName: string, userName: st
   return review;
 }
 
-export function voteReviewHelpful(titleId: string, reviewId: string): Review | undefined {
+export function voteReview(titleId: string, reviewId: string, direction: "up" | "down"): Review | undefined {
   const reviews = REVIEW_STORE.get(titleId);
   if (!reviews) return undefined;
   const review = reviews.find((r) => r.id === reviewId);
   if (!review) return undefined;
-  review.helpfulCount += 1;
+  if (direction === "up") review.helpfulCount += 1;
+  else review.unhelpfulCount += 1;
   return review;
 }
 

@@ -18,9 +18,20 @@ export async function GET(req: NextRequest) {
   const all = await listTitlesForWeek(weekId);
   const filtered = filterTitles(all, filters);
 
-  return NextResponse.json({
-    titles: filtered,
-    total: filtered.length,
-    weekId: weekId ?? "current"
-  });
+  return NextResponse.json(
+    {
+      titles: filtered,
+      total: filtered.length,
+      weekId: weekId ?? "current"
+    },
+    {
+      // Lets Vercel's edge CDN cache this response for repeat visitors
+      // (same filter combo = same cache entry), cutting origin function
+      // invocations. 5-minute fresh window, serves stale for up to 10
+      // minutes while quietly refreshing in the background — matches the
+      // app's own internal cache window (LIVE_CACHE_TTL_MS) so this
+      // never serves noticeably staler data than the app already would.
+      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" }
+    }
+  );
 }

@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion, type PanInfo } from "framer-motion";
-import { useTitles, useWeeks } from "@/hooks/useTitles";
+import { useTitles, useWeeks, DEFAULT_TITLE_FILTERS } from "@/hooks/useTitles";
 import { WeekSelector } from "@/components/WeekSelector";
 import { HeroCarousel } from "@/components/HeroCarousel";
 import { HeroSkeleton } from "@/components/HeroSkeleton";
@@ -17,7 +17,6 @@ import { useTasteStore } from "@/hooks/useTasteStore";
 import { Clapperboard, Tv } from "lucide-react";
 import type { TitleFilters, Title, WeekMeta } from "@/lib/types";
 
-const DEFAULT_FILTERS: TitleFilters = { type: "ALL", language: "ALL", platform: "ALL", genre: "ALL" };
 
 interface DashboardClientProps {
   initialWeeks?: WeekMeta[];
@@ -27,7 +26,7 @@ interface DashboardClientProps {
 export function DashboardClient({ initialWeeks, initialTitles }: DashboardClientProps) {
   const { data: weeks = [] } = useWeeks(initialWeeks);
   const [weekId, setWeekId] = useState<string | undefined>(undefined);
-  const [filters, setFilters] = useState<TitleFilters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<TitleFilters>(DEFAULT_TITLE_FILTERS);
   const { t } = useI18n();
 
   const activeWeekId = weekId ?? weeks.find((w) => w.isCurrent)?.id;

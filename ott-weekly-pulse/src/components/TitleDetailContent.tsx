@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useEffect } from "react";
-import { Bookmark, BellRing, CheckCircle2, Clapperboard, ExternalLink, Film, Languages, Tv2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bookmark, BellRing, CheckCircle2, Clapperboard, ExternalLink, Film, Languages, Tv2, X } from "lucide-react";
 import type { Title } from "@/lib/types";
 import { PLATFORM_LABELS, GENRE_LABELS } from "@/lib/types";
 import { formatStartingPrice } from "@/lib/platform-pricing";
@@ -32,6 +32,7 @@ export function TitleDetailContent({ title }: { title: Title }) {
   const playTrailer = useTrailerPlayer((s) => s.play);
   const toggleReminder = useReminderStore((s) => s.toggle);
   const watched = useWatchedStore((s) => s.isWatched(title.id));
+  const [showReviewPrompt, setShowReviewPrompt] = useState(false);
   const toggleWatched = useWatchedStore((s) => s.toggle);
   const { t } = useI18n();
   const recordView = useRecentlyViewedStore((s) => s.record);
@@ -197,7 +198,11 @@ export function TitleDetailContent({ title }: { title: Title }) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => toggleWatched({ id: title.id, title: title.title, posterUrl: title.posterUrl })}
+                onClick={() => {
+                  const wasWatched = watched;
+                  toggleWatched({ id: title.id, title: title.title, posterUrl: title.posterUrl });
+                  if (!wasWatched) setShowReviewPrompt(true);
+                }}
                 className={cn(watched && "border-emerald-500/50 text-emerald-400")}
               >
                 <CheckCircle2 className={cn("h-3.5 w-3.5", watched && "fill-current")} /> {watched ? "Watched" : "Mark as Watched"}
@@ -205,6 +210,25 @@ export function TitleDetailContent({ title }: { title: Title }) {
             )}
             <ShareButton title={title.title} url={typeof window !== "undefined" ? `${window.location.origin}/title/${title.id}` : `/title/${title.id}`} />
           </div>
+          {showReviewPrompt && (
+            <div className="mt-3 flex items-center justify-between rounded-xl border border-accent/30 bg-accent/5 p-2.5 text-xs">
+              <span>Nice! How was it?</span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    document.getElementById("reviews-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    setShowReviewPrompt(false);
+                  }}
+                  className="font-semibold text-accent hover:underline"
+                >
+                  Leave a review ↓
+                </button>
+                <button onClick={() => setShowReviewPrompt(false)} className="text-muted-foreground hover:text-foreground" aria-label="Dismiss">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
           {!isUpcoming && title.platforms.some((p) => formatStartingPrice(p)) && (
             <p className="mt-2 text-[10px] text-muted-foreground/70">*Approximate starting price, varies by plan/promo — check the platform directly for current pricing.</p>
           )}
@@ -214,7 +238,7 @@ export function TitleDetailContent({ title }: { title: Title }) {
         {!isUpcoming && <CriticsTakeCard titleId={title.id} />}
         {!isUpcoming && <MoreLikeThis current={title} />}
 
-        {!isUpcoming && <ReviewsSection titleId={title.id} />}
+        {!isUpcoming && <div id="reviews-section"><ReviewsSection titleId={title.id} /></div>}
       </div>
     </div>
   );

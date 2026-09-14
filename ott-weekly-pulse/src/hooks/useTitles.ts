@@ -2,6 +2,8 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Title, TitleFilters, WeekMeta } from "@/lib/types";
 
+export const DEFAULT_TITLE_FILTERS: TitleFilters = { type: "ALL", language: "ALL", platform: "ALL", genre: "ALL" };
+
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Request failed: ${res.status}`);

@@ -160,6 +160,21 @@ A password-protected page at `/admin` — not a general CMS, just a narrow set o
 
 Public POST endpoints (reviews, newsletter signup, watchlist sync, push subscribe, admin login) are now rate-limited per IP (`src/lib/rate-limit.ts`) — e.g. 5 reviews/minute, 5 admin login attempts per 5 minutes. Uses Vercel KV if configured for cross-instance consistency, otherwise in-memory (rate-limits per serverless instance only — better than nothing, same honest limitation as other optional-KV stores here). Reviews also get a basic spam/profanity pattern check before being accepted.
 
+## Performance
+
+- **Blur placeholders on every poster** (`src/lib/utils.ts`'s `blurDataUrl`) — a generic shimmer SVG, not a per-image blur hash (that needs server-side image processing this project doesn't have), so images fade in smoothly instead of popping in abruptly.
+- **Cache-Control headers on `/api/titles` and `/api/weeks`** — lets Vercel's edge CDN serve repeat requests without hitting the origin function every time. `/api/weeks` also moved to Edge Runtime (pure date math, no Node-specific dependencies) for faster cold starts globally.
+- **Deduplicated fetches**: "More Like This" on the title detail page now uses the same `useTitles` hook + default-filters shape as the homepage dashboard, rather than its own ad-hoc query — when you open a title from the homepage (the common case), TanStack Query serves it from cache instead of firing a second, functionally-identical network request.
+- **Tuned hero image loading** — explicit responsive `sizes` breakpoints and slightly reduced JPEG quality (70) for backdrop images, which don't need full quality at their typical display size.
+
+## Reviews
+
+- **Verified Watch badge** — if you've marked a title watched (see Watched diary above) before posting a review, it's tagged "Verified Watch," distinguishing it from a review by someone who hasn't confirmed they've seen it.
+- **Sort control** — Most Helpful / Newest / Highest Rated / Lowest Rated, via a dropdown above the review list.
+- **Multi-dimensional ratings** — an optional "rate story, acting & pacing separately" expander alongside the overall score, for reviewers who want to give more textured feedback.
+- **Review prompt after marking watched** — a small dismissible banner appears right after you mark a title watched, with a "Leave a review ↓" link that scrolls straight to the review form.
+- **Downvote alongside upvote** — reviews previously only had a single "helpful" counter; now both directions are tracked and sorting by "Most Helpful" accounts for both.
+
 ## Freshness & admin visibility
 
 - **"Still Streaming" badge** (`src/lib/freshness.ts`) — shown on a title card when its real release date falls outside the currently-displayed week (i.e., it's surfacing because it's still popular, not because it's brand new). Genuinely new titles show no badge, keeping the common case visually clean rather than tagging every single card.
