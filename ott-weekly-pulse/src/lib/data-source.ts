@@ -118,6 +118,31 @@ export function listTitlesForWeekMock(weekId?: string): Title[] {
   return seeds.map((seed) => seedToTitle(seed, weekStartDate, weekEndDate));
 }
 
+/**
+ * Curated titles that are actually DATED for the queried week — used when
+ * live data is configured but happened to return nothing for this
+ * specific week (a transient API hiccup, quota exhaustion, or a
+ * genuinely sparse window under the tightened 10-day live-query lookback).
+ *
+ * This is deliberately NOT the same as listTitlesForWeekMock(), which
+ * recomputes the ENTIRE curated catalog fresh for whatever week is
+ * passed in — that's correct behavior only for the "no live source
+ * configured at all" demo-mode case (a permanent, known state). Reusing
+ * it here for a live-but-momentarily-empty week would silently relabel
+ * old curated titles (Alpha, Bandar, etc.) as brand new every time it
+ * triggered — exactly the "same titles keep reappearing" bug this
+ * project has hit multiple times. Returning an honest empty result when
+ * nothing is date-matched is the correct behavior once live data is
+ * meant to be the source of truth: better a quiet/thin week than fake
+ * "new" content.
+ */
+function listDateMatchedCuratedTitles(weekId: string | undefined, weekStartDate: Date, weekEndDate: Date): Title[] {
+  const queryWeekIso = weekStartDate.toISOString().slice(0, 10);
+  return MOCK_TITLES.filter((seed) => seed.weekStartDate === queryWeekIso).map((seed) =>
+    seedToTitle(seed, weekStartDate, weekEndDate)
+  );
+}
+
 // In-process cache so repeated requests within the same warm serverless
 // instance don't redundantly re-fetch+reassemble the live catalog; the
 // underlying TMDB HTTP calls are also cached by Vercel's persistent Data
@@ -249,7 +274,14 @@ async function assembleTitlesForWeek(weekId?: string): Promise<Title[]> {
     }
   }
 
-  if (live.length === 0) return listTitlesForWeekMock(weekId);
+  if (live.length === 0) {
+    // Live is configured but returned nothing for this specific week —
+    // NOT the same as "no live source configured at all". Only show
+    // curated titles actually dated for this week; if none match, the
+    // catalog is genuinely thin/empty this time rather than papered over
+    // with recycled old titles relabeled as new.
+    return listDateMatchedCuratedTitles(weekId, weekStartDate, weekEndDate);
+  }
 
   const withCurated = mergeCuratedTitles(live, weekStartDate, weekEndDate);
   const balanced = prioritizeIndianLanguages(withCurated, weekStartDate, weekEndDate);
