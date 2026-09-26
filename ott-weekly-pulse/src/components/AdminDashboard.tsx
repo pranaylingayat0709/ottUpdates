@@ -17,6 +17,14 @@ interface CuratedStatus {
   activeThisWeek: number;
   currentWeekLabel: string;
   stale: boolean;
+  dataSource?: {
+    mode: "live" | "demo-fallback" | "demo-mode";
+    watchmodeKeyPresent: boolean;
+    tmdbKeyPresent: boolean;
+    liveTitleCount: number;
+    curatedTitleCount: number;
+    totalTitleCount: number;
+  };
 }
 
 // Owner-only curation panel — lets you fix live-data issues (hide a bad
@@ -102,6 +110,43 @@ export function AdminDashboard() {
           <Button variant="ghost" size="sm" onClick={logout}><LogOut className="h-3.5 w-3.5" /></Button>
         </div>
       </div>
+
+      {curatedStatus?.dataSource && (
+        <div
+          className={`mb-4 flex items-center gap-2 rounded-xl border p-3 text-xs ${
+            curatedStatus.dataSource.mode === "live"
+              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+              : "border-rose-500/40 bg-rose-500/10 text-rose-300"
+          }`}
+        >
+          <Database className="h-4 w-4 shrink-0" />
+          {curatedStatus.dataSource.mode === "live" && (
+            <span>
+              <strong>LIVE</strong> — {curatedStatus.dataSource.liveTitleCount} of {curatedStatus.dataSource.totalTitleCount} titles this week came from
+              Watchmode/TMDB.
+            </span>
+          )}
+          {curatedStatus.dataSource.mode === "demo-fallback" && (
+            <span>
+              <strong>WARNING: DEMO FALLBACK</strong> — an API key is configured ({[
+                curatedStatus.dataSource.watchmodeKeyPresent && "Watchmode",
+                curatedStatus.dataSource.tmdbKeyPresent && "TMDB"
+              ]
+                .filter(Boolean)
+                .join(" + ")}
+              ) but returned zero titles for {curatedStatus.currentWeekLabel}, so every title shown right now is curated/mock data. If this
+              persists, check the key is valid and not rate-limited on Vercel.
+            </span>
+          )}
+          {curatedStatus.dataSource.mode === "demo-mode" && (
+            <span>
+              <strong>WARNING: DEMO MODE</strong> — no WATCHMODE_API_KEY or TMDB_API_KEY is set in this deployment&apos;s environment. Every title
+              shown is sample/curated data and will look identical (and eventually stale) every week until a live key is added on Vercel
+              and the app is redeployed.
+            </span>
+          )}
+        </div>
+      )}
 
       {curatedStatus && (
         <div

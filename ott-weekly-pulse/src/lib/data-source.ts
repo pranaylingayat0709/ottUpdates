@@ -347,9 +347,18 @@ async function applyAdminOverrides(titles: Title[], weekId?: string): Promise<Ti
 
   if (overrides.pinnedTitles.length > 0) {
     const { weekStartDate, weekEndDate } = getWeekRangeById(weekId);
+    const queryWeekIso = weekStartDate.toISOString().slice(0, 10);
     const existingNames = new Set(result.map((t) => t.title.toLowerCase()));
+    // FOURTH previously-undiscovered leak path, found in this audit: unlike
+    // every other curated-title injection point in this file, pinned titles
+    // were never gated by weekStartDate — an admin "pin this title" action
+    // re-stamped the pinned seed onto whatever week was being viewed, every
+    // single week, forever, with a fresh id/releaseDate each time. That is
+    // precisely the "same titles keep reappearing as new" symptom. A pin is
+    // now anchored to the week it was made for, exactly like every other
+    // curated seed, and ages out once that week has passed.
     const pinned = overrides.pinnedTitles
-      .filter((seed) => !existingNames.has(seed.title.toLowerCase()))
+      .filter((seed) => seed.weekStartDate === queryWeekIso && !existingNames.has(seed.title.toLowerCase()))
       .map((seed) => seedToTitle(seed, weekStartDate, weekEndDate));
     result = [...pinned, ...result];
   }
