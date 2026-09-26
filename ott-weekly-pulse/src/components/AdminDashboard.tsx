@@ -24,6 +24,7 @@ interface CuratedStatus {
     liveTitleCount: number;
     curatedTitleCount: number;
     totalTitleCount: number;
+    watchmodeError?: { status: number | null; message: string; at: string } | null;
   };
 }
 
@@ -134,8 +135,26 @@ export function AdminDashboard() {
               ]
                 .filter(Boolean)
                 .join(" + ")}
-              ) but returned zero titles for {curatedStatus.currentWeekLabel}, so every title shown right now is curated/mock data. If this
-              persists, check the key is valid and not rate-limited on Vercel.
+              ) but returned zero titles for {curatedStatus.currentWeekLabel}, so every title shown right now is curated/mock data.
+              {curatedStatus.dataSource.watchmodeError ? (
+                <>
+                  {" "}
+                  Watchmode reason:{" "}
+                  <strong>
+                    {curatedStatus.dataSource.watchmodeError.status === 401 || curatedStatus.dataSource.watchmodeError.status === 403
+                      ? "key rejected (401/403) — it's invalid, revoked, or mistyped in Vercel"
+                      : curatedStatus.dataSource.watchmodeError.status === 429
+                        ? "429 rate-limited — you've hit Watchmode's request cap (likely the 2,500/month free-tier quota)"
+                        : curatedStatus.dataSource.watchmodeError.status
+                          ? `HTTP ${curatedStatus.dataSource.watchmodeError.status}`
+                          : "network/timeout error reaching Watchmode"}
+                  </strong>
+                  {" — "}
+                  <code className="text-[10px] opacity-80">{curatedStatus.dataSource.watchmodeError.message}</code>
+                </>
+              ) : (
+                " No error was recorded, so this is likely a genuinely quiet week for new IN-region releases rather than a broken key."
+              )}
             </span>
           )}
           {curatedStatus.dataSource.mode === "demo-mode" && (

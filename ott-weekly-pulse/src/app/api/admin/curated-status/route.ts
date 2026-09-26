@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { isValidSessionToken, getSessionCookieName } from "@/lib/admin-auth";
 import { MOCK_TITLES } from "@/data/mock-data";
 import { listWeeks, listTitlesForWeek } from "@/lib/data-source";
-import { isWatchmodeEnabled } from "@/lib/watchmode";
+import { isWatchmodeEnabled, getLastWatchmodeError } from "@/lib/watchmode";
 import { isLiveDataEnabled } from "@/lib/tmdb";
 
 // Lets the admin panel warn when the curated fallback/supplement pool has
@@ -48,6 +48,13 @@ export async function GET() {
   const mode: "live" | "demo-fallback" | "demo-mode" =
     liveTitleCount > 0 ? "live" : watchmodeKeyPresent || tmdbKeyPresent ? "demo-fallback" : "demo-mode";
 
+  // The specific reason Watchmode came back empty, if it errored rather
+  // than genuinely finding nothing — see getLastWatchmodeError in
+  // watchmode.ts. Distinguishing "401: bad key" / "429: quota exhausted"
+  // from "genuinely no releases this week" is the whole point of this
+  // field; both used to look identical from here.
+  const watchmodeError = watchmodeKeyPresent ? getLastWatchmodeError() : null;
+
   return NextResponse.json({
     totalSeeds: MOCK_TITLES.length,
     activeThisWeek,
@@ -60,7 +67,8 @@ export async function GET() {
       tmdbKeyPresent,
       liveTitleCount,
       curatedTitleCount,
-      totalTitleCount
+      totalTitleCount,
+      watchmodeError
     }
   });
 }

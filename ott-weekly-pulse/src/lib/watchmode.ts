@@ -33,6 +33,27 @@ export function isWatchmodeEnabled(): boolean {
   return !!apiKey();
 }
 
+// Surfaces WHY the last Watchmode call failed (bad key, quota exhausted,
+// rate-limited, network timeout, or the request genuinely had zero
+// matches) instead of the plain `null` every internal helper here returns
+// on failure. That `null` collapsing every distinct failure mode into
+// "no results" is exactly why the admin panel could only ever say
+// "returned zero titles" — with no way to tell an expired key apart from
+// a quiet week apart from a burnt-through monthly quota. Read by the
+// admin curated-status endpoint so that distinction shows up in the UI
+// instead of requiring a dig through Vercel's function logs.
+let lastError: { status: number | null; message: string; at: string } | null = null;
+
+export function getLastWatchmodeError() {
+  return lastError;
+}
+
+function recordError(status: number | null, message: string) {
+  lastError = { status, message, at: new Date().toISOString() };
+  // Also goes to Vercel's function logs for anyone who does want the raw detail.
+  console.error(`[watchmode] ${status ?? "ERR"} ${message}`);
+}
+
 // ---------- Watchmode raw response shapes (only fields we use) ----------
 interface WmListItem {
   id: number;
@@ -131,9 +152,20 @@ async function wmFetch<T>(path: string, params: Record<string, string>): Promise
       next: { revalidate: REVALIDATE_SECONDS },
       signal: AbortSignal.timeout(8000)
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // Watchmode returns 401 for a bad/revoked key and 429 once the
+      // monthly quota (2,500 req on the free tier) is exhausted — both
+      // silently looked identical to "no releases this week" before this
+      // was captured. Body is small (Watchmode error payloads are a short
+      // JSON message), so it's safe to read and keep verbatim.
+      const body = await res.text().catch(() => "");
+      recordError(res.status, body.slice(0, 300) || res.statusText);
+      return null;
+    }
+    lastError = null; // a success clears any previously recorded failure
     return (await res.json()) as T;
-  } catch {
+  } catch (err) {
+    recordError(null, err instanceof Error ? err.message : "Unknown network error");
     return null;
   }
 }
