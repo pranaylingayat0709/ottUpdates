@@ -18,7 +18,14 @@ export function useWeeks(initialData?: WeekMeta[]) {
   });
 }
 
-export function useTitles(weekId: string | undefined, filters: TitleFilters, initialData?: { titles: Title[]; total: number }) {
+export interface TitlesResponse {
+  titles: Title[];
+  total: number;
+  weekId?: string;
+  generatedAt?: string | null;
+}
+
+export function useTitles(weekId: string | undefined, filters: TitleFilters, initialData?: TitlesResponse) {
   const params = new URLSearchParams();
   if (weekId) params.set("weekId", weekId);
   if (filters.type && filters.type !== "ALL") params.set("type", filters.type);
@@ -30,8 +37,21 @@ export function useTitles(weekId: string | undefined, filters: TitleFilters, ini
 
   return useQuery({
     queryKey: ["titles", weekId, filters],
-    queryFn: () => fetchJson<{ titles: Title[]; total: number }>(`/api/titles?${params.toString()}`),
+    queryFn: () => fetchJson<TitlesResponse>(`/api/titles?${params.toString()}`),
     initialData
+  });
+}
+
+// Lightweight count-only fetch for the "Coming soon" stat — reuses the
+// same /api/titles + React Query cache as the main week view (same query
+// key shape), so switching to that week later is instant instead of a
+// second network round trip.
+export function useTitleCount(weekId: string | undefined) {
+  return useQuery({
+    queryKey: ["titles", weekId, DEFAULT_TITLE_FILTERS],
+    queryFn: () => fetchJson<TitlesResponse>(`/api/titles?weekId=${weekId}`),
+    enabled: !!weekId,
+    select: (d) => d.total
   });
 }
 

@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, motion, type PanInfo } from "framer-motion";
 import { useTitles, useWeeks, DEFAULT_TITLE_FILTERS } from "@/hooks/useTitles";
 import { WeekSelector } from "@/components/WeekSelector";
+import { WeekStatsBar } from "@/components/WeekStatsBar";
 import { HeroCarousel } from "@/components/HeroCarousel";
 import { HeroSkeleton } from "@/components/HeroSkeleton";
 import { FilterBar } from "@/components/FilterBar";
@@ -69,6 +70,7 @@ export function DashboardClient({ initialWeeks, initialTitles }: DashboardClient
   return (
     <div>
       <WeekSelector weekId={activeWeekId} onChange={setWeekId} />
+      <WeekStatsBar weeks={weeks} />
 
       <AnimatePresence mode="wait">
         <motion.div

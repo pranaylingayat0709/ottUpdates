@@ -77,7 +77,14 @@ function seedToTitle(seed: MockTitleSeed, weekStartDate: Date, weekEndDate: Date
   };
 }
 
-const WEEK_WINDOW = 4; // weeks of history + upcoming available in the selector
+// Weeks of history shown in the selector (plus the current + next week).
+// Kept intentionally small — 2 past + current + next = 4 weeks total, a
+// little over a month — both because that's the useful browsing range for
+// a WEEKLY release calendar, and because it bounds how much fetched live
+// data the app needs to hold onto at all (see STORED_SNAPSHOT_TTL_SECONDS
+// below, which expires a week's cached catalog once it's aged out of this
+// window).
+const WEEK_WINDOW = 2;
 
 export function listWeeks(): WeekMeta[] {
   const current = getCurrentWeekRange();
@@ -144,20 +151,30 @@ function listDateMatchedCuratedTitles(weekId: string | undefined, weekStartDate:
 }
 
 // In-process cache so repeated requests within the same warm serverless
-// instance don't redundantly re-fetch+reassemble the live catalog; the
-// underlying TMDB HTTP calls are also cached by Vercel's persistent Data
-// Cache (see the `next: { revalidate }` option in src/lib/tmdb.ts), so this
-// is a secondary, best-effort optimization rather than the source of truth.
+// instance don't redundantly re-fetch+reassemble the live catalog. This is
+// purely a per-instance speed optimization (it's wiped on every cold
+// start) — the real, durable source of truth is the KV-backed snapshot
+// below, which is what actually controls how often Watchmode/TMDB get
+// called.
 const LIVE_CACHE = new Map<string, { data: Title[]; expiresAt: number }>();
-// IMPORTANT: this only governs how often THIS APP re-runs its own
-// processing (admin overrides, community-rating merges) on top of
-// whatever raw data is available — it does NOT control how often new
-// titles actually get discovered from Watchmode/TMDB. That's bounded by
-// the fetch-level `revalidate` window in watchmode.ts/tmdb.ts (12h/6h by
-// default), which exists specifically to protect Watchmode's monthly
-// request quota. A newly-released title typically appears within that
-// window, not within these 10 minutes.
-const LIVE_CACHE_TTL_MS = 10 * 60 * 1000;
+const LIVE_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour — just avoids redundant reprocessing within a warm instance
+
+// A week's assembled live catalog is fetched ONCE and then frozen: once
+// stored, it's reused for the rest of that week and for every later
+// request to that same week (via the WeekSelector, best-of-month,
+// wrapped, genre/person pages, the sitemap, etc.) instead of ever being
+// re-fetched from Watchmode/TMDB again. Real releases for a week that has
+// already happened don't change, so there's nothing to gain by
+// re-querying — only quota to lose. This is also what makes the refresh
+// cadence effectively "once per week, whenever the week rolls over"
+// (WEEK_WINDOW's Friday boundary changes the week's id, which is a cache
+// miss) without needing an actual cron schedule.
+//
+// The TTL below is intentionally NOT "forever" — it's sized to a little
+// past WEEK_WINDOW's visible range (2 past weeks + current + next) so a
+// week's snapshot expires out of storage once nothing in the app can
+// show it anymore, rather than accumulating unbounded old data.
+const STORED_SNAPSHOT_TTL_SECONDS = 35 * 24 * 60 * 60; // 35 days
 
 // Ensures Hindi/Marathi content isn't crowded out by globally-popular
 // Hollywood titles in the DISPLAY ORDER. Important: this must never
@@ -243,7 +260,8 @@ async function assembleTitlesForWeek(weekId?: string): Promise<Title[]> {
   if (!isWatchmodeEnabled() && !isLiveDataEnabled()) return listTitlesForWeekMock(weekId);
 
   const { weekStartDate, weekEndDate } = getWeekRangeById(weekId);
-  const resolvedWeekId = weekId ?? listWeeks().find((w) => w.isCurrent)?.id ?? weekStartDate.toISOString().slice(0, 10);
+  const weeks = listWeeks();
+  const resolvedWeekId = weekId ?? weeks.find((w) => w.isCurrent)?.id ?? weekStartDate.toISOString().slice(0, 10);
   const kvKey = `owp:titles:${resolvedWeekId}`;
 
   const cached = LIVE_CACHE.get(resolvedWeekId);
@@ -256,6 +274,23 @@ async function assembleTitlesForWeek(weekId?: string): Promise<Title[]> {
   if (kvCached && kvCached.length > 0) {
     LIVE_CACHE.set(resolvedWeekId, { data: kvCached, expiresAt: Date.now() + LIVE_CACHE_TTL_MS });
     return kvCached;
+  }
+
+  // Only the CURRENT week is worth an actual live API call. Pages that
+  // aggregate across many weeks (sitemap.xml, best-of-month, wrapped,
+  // genre/person pages) all go through this same function, and each
+  // distinct week used to trigger its own full Watchmode fetch (1
+  // list-titles call + 2 calls per candidate title) — 6+ weeks' worth of
+  // calls on every sitemap crawl, which is what actually burned through
+  // the 2,500/month free-tier quota in under a month even though a
+  // single week's refresh cadence was well inside budget. A past week's
+  // real releases don't change after the fact, and the upcoming week is
+  // preview-only anyway, so both are served from the curated/mock
+  // fallback below at zero API cost instead of re-fetching live data
+  // nobody asked to see refresh.
+  const isCurrentWeek = weeks.find((w) => w.id === resolvedWeekId)?.isCurrent ?? false;
+  if (!isCurrentWeek) {
+    return listDateMatchedCuratedTitles(weekId, weekStartDate, weekEndDate);
   }
 
   const [watchmodeResults, tmdbResults] = await Promise.all([
@@ -286,8 +321,27 @@ async function assembleTitlesForWeek(weekId?: string): Promise<Title[]> {
   const withCurated = mergeCuratedTitles(live, weekStartDate, weekEndDate);
   const balanced = prioritizeIndianLanguages(withCurated, weekStartDate, weekEndDate);
   LIVE_CACHE.set(resolvedWeekId, { data: balanced, expiresAt: Date.now() + LIVE_CACHE_TTL_MS });
-  await kvSet(kvKey, balanced, LIVE_CACHE_TTL_MS / 1000);
+  // Stored with the long TTL, not the 1-hour in-memory one — this is the
+  // frozen snapshot every later request to this week (this week and every
+  // week after, until it ages out of WEEK_WINDOW) will be served from,
+  // without ever calling Watchmode/TMDB again for it.
+  await kvSet(kvKey, balanced, STORED_SNAPSHOT_TTL_SECONDS);
+  // Records the moment this week's snapshot was actually fetched, so the
+  // UI can show a genuine "Updated on <date>" instead of today's date —
+  // with the fetch-once-and-freeze cache above, a week's data may well be
+  // several days old by the time someone's looking at it.
+  await kvSet(`${GENERATED_AT_KV_PREFIX}${resolvedWeekId}`, new Date().toISOString(), STORED_SNAPSHOT_TTL_SECONDS);
   return balanced;
+}
+
+const GENERATED_AT_KV_PREFIX = "owp:generatedAt:";
+
+// When this week's catalog was actually fetched from Watchmode/TMDB —
+// null if it's never been live-fetched (demo mode, KV not configured, or
+// a genuinely curated-only week). Read by /api/titles to show a real
+// freshness timestamp rather than the current date.
+export async function getGeneratedAt(weekId: string): Promise<string | null> {
+  return kvGet<string>(`${GENERATED_AT_KV_PREFIX}${weekId}`);
 }
 
 /**

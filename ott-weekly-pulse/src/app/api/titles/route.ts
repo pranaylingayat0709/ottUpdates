@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { filterTitles, listTitlesForWeek } from "@/lib/data-source";
+import { filterTitles, listTitlesForWeek, getGeneratedAt, listWeeks } from "@/lib/data-source";
 import type { TitleFilters } from "@/lib/types";
 
 export async function GET(req: NextRequest) {
@@ -18,11 +18,15 @@ export async function GET(req: NextRequest) {
   const all = await listTitlesForWeek(weekId);
   const filtered = filterTitles(all, filters);
 
+  const resolvedWeekId = weekId ?? listWeeks().find((w) => w.isCurrent)?.id;
+  const generatedAt = resolvedWeekId ? await getGeneratedAt(resolvedWeekId) : null;
+
   return NextResponse.json(
     {
       titles: filtered,
       total: filtered.length,
-      weekId: weekId ?? "current"
+      weekId: weekId ?? "current",
+      generatedAt
     },
     {
       // Lets Vercel's edge CDN cache this response for repeat visitors
