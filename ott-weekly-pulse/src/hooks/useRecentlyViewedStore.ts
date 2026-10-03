@@ -1,6 +1,7 @@
 "use client";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { scopedStoreName } from "@/lib/household";
 
 interface RecentItem {
   id: string;
@@ -30,6 +31,6 @@ export const useRecentlyViewedStore = create<RecentlyViewedState>()(
         set({ items: next });
       }
     }),
-    { name: "owp-recently-viewed" }
+    { name: scopedStoreName("owp-recently-viewed") }
   )
 );

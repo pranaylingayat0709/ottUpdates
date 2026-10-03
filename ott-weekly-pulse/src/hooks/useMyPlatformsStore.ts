@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Platform } from "@/lib/types";
+import { scopedStoreName } from "@/lib/household";
 
 interface MyPlatformsState {
   platforms: Platform[];
@@ -27,6 +28,6 @@ export const useMyPlatformsStore = create<MyPlatformsState>()(
       setAll: (platforms) => set({ platforms }),
       markOnboarded: () => set({ hasOnboarded: true })
     }),
-    { name: "owp-my-platforms" }
+    { name: scopedStoreName("owp-my-platforms") }
   )
 );

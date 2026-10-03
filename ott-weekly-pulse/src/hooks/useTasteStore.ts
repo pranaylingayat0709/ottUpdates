@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Genre } from "@/lib/types";
+import { scopedStoreName } from "@/lib/household";
 
 interface TasteState {
   favoriteGenres: Genre[];
@@ -24,6 +25,6 @@ export const useTasteStore = create<TasteState>()(
       },
       markOnboarded: () => set({ hasOnboarded: true })
     }),
-    { name: "owp-taste" }
+    { name: scopedStoreName("owp-taste") }
   )
 );

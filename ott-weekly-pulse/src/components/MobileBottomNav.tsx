@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Scale, TrendingUp, Bookmark, Search } from "lucide-react";
+import { Home, Scale, TrendingUp, Bookmark, User } from "lucide-react";
 import { useState } from "react";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { WatchlistDrawer } from "@/components/WatchlistDrawer";
@@ -18,7 +18,8 @@ export function MobileBottomNav() {
   const items = [
     { href: "/", label: "Home", icon: Home, active: pathname === "/" },
     { href: "/top-10", label: "Top 10", icon: TrendingUp, active: pathname === "/top-10" },
-    { href: "/compare", label: "Compare", icon: Scale, active: pathname === "/compare" }
+    { href: "/compare", label: "Compare", icon: Scale, active: pathname === "/compare" },
+    { href: "/profile", label: "Profile", icon: User, active: pathname === "/profile" }
   ];
 
   return (

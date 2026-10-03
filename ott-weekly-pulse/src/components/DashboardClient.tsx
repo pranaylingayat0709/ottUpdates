@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, type PanInfo } from "framer-motion";
 import { useTitles, useWeeks, DEFAULT_TITLE_FILTERS } from "@/hooks/useTitles";
 import { WeekSelector } from "@/components/WeekSelector";
@@ -8,6 +8,7 @@ import { HeroCarousel } from "@/components/HeroCarousel";
 import { HeroSkeleton } from "@/components/HeroSkeleton";
 import { FilterBar } from "@/components/FilterBar";
 import { ReleaseCalendar, CatalogSection } from "@/components/ReleaseCalendar";
+import { EmptyState } from "@/components/EmptyState";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RecommendedForYou } from "@/components/RecommendedForYou";
 import { ContinueWatching } from "@/components/ContinueWatching";
@@ -17,6 +18,11 @@ import { useI18n } from "@/components/LanguageProvider";
 import { useTasteStore } from "@/hooks/useTasteStore";
 import { Clapperboard, Tv } from "lucide-react";
 import type { TitleFilters, Title, WeekMeta } from "@/lib/types";
+import { matchesMood, matchesRuntime, type MoodKey, type RuntimeKey } from "@/lib/moods";
+import { SurpriseMeButton } from "@/components/SurpriseMeButton";
+import { TonightWizard } from "@/components/TonightWizard";
+import { Wand2 } from "lucide-react";
+import { useLastFiltersStore } from "@/hooks/useLastFiltersStore";
 
 
 interface DashboardClientProps {
@@ -28,7 +34,30 @@ export function DashboardClient({ initialWeeks, initialTitles }: DashboardClient
   const { data: weeks = [] } = useWeeks(initialWeeks);
   const [weekId, setWeekId] = useState<string | undefined>(undefined);
   const [filters, setFilters] = useState<TitleFilters>(DEFAULT_TITLE_FILTERS);
+  const [mood, setMood] = useState<MoodKey | "ALL">("ALL");
+  const [runtime, setRuntime] = useState<RuntimeKey | "ALL">("ALL");
+  const [wizardOpen, setWizardOpen] = useState(false);
   const { t } = useI18n();
+  const lastFilters = useLastFiltersStore((s) => s.filters);
+  const setLastFilters = useLastFiltersStore((s) => s.setFilters);
+
+  // Restore the last non-search filter combo once the persisted store has
+  // hydrated on the client (its initial value matches DEFAULT_TITLE_FILTERS
+  // until then, so this is a no-op for a first-ever visit).
+  useEffect(() => {
+    setFilters((f) => ({ ...f, ...lastFilters }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function updateFilters(next: Partial<TitleFilters>) {
+    setFilters((f) => {
+      const merged = { ...f, ...next };
+      if ("type" in next || "language" in next || "platform" in next || "genre" in next || "minRating" in next) {
+        setLastFilters({ type: merged.type, language: merged.language, platform: merged.platform, genre: merged.genre, minRating: merged.minRating });
+      }
+      return merged;
+    });
+  }
 
   const activeWeekId = weekId ?? weeks.find((w) => w.isCurrent)?.id;
   const { data, isLoading } = useTitles(
@@ -37,7 +66,14 @@ export function DashboardClient({ initialWeeks, initialTitles }: DashboardClient
     initialTitles ? { titles: initialTitles, total: initialTitles.length } : undefined
   );
 
-  const titles = data?.titles ?? [];
+  const rawTitles = data?.titles ?? [];
+  // Mood and runtime are fuzzy/compound filters, applied client-side on top
+  // of whatever the server already returned rather than as another exact
+  // server-side field.
+  const titles = useMemo(
+    () => rawTitles.filter((t) => matchesMood(t.genres, mood) && matchesRuntime(t, runtime)),
+    [rawTitles, mood, runtime]
+  );
   const tasteGenres = useTasteStore((s) => s.favoriteGenres);
   const heroTitles = useMemo(() => {
     const musts = titles.filter((t) => t.isMustWatch);
@@ -53,7 +89,7 @@ export function DashboardClient({ initialWeeks, initialTitles }: DashboardClient
   }, [titles, tasteGenres]);
 
   const hasActiveFilters =
-    filters.type !== "ALL" || filters.language !== "ALL" || filters.platform !== "ALL" || filters.genre !== "ALL" || !!filters.minRating || !!filters.search;
+    filters.type !== "ALL" || filters.language !== "ALL" || filters.platform !== "ALL" || filters.genre !== "ALL" || !!filters.minRating || !!filters.search || mood !== "ALL" || runtime !== "ALL";
 
   const isCurrentWeek = weeks.find((w) => w.id === activeWeekId)?.isCurrent ?? true;
 
@@ -70,7 +106,20 @@ export function DashboardClient({ initialWeeks, initialTitles }: DashboardClient
   return (
     <div>
       <WeekSelector weekId={activeWeekId} onChange={setWeekId} />
-      <WeekStatsBar weeks={weeks} />
+      <WeekStatsBar
+        weeks={weeks}
+        extraAction={
+          !isLoading && rawTitles.length > 0 ? (
+            <>
+              <button onClick={() => setWizardOpen(true)} className="chip flex items-center gap-1.5">
+                <Wand2 className="h-3.5 w-3.5" /> Tonight?
+              </button>
+              <SurpriseMeButton titles={rawTitles} />
+            </>
+          ) : undefined
+        }
+      />
+      <TonightWizard titles={rawTitles} open={wizardOpen} onOpenChange={setWizardOpen} />
 
       <AnimatePresence mode="wait">
         <motion.div
@@ -93,7 +142,14 @@ export function DashboardClient({ initialWeeks, initialTitles }: DashboardClient
             </ErrorBoundary>
           )}
 
-          <FilterBar filters={filters} onChange={(next) => setFilters((f) => ({ ...f, ...next }))} />
+          <FilterBar
+            filters={filters}
+            onChange={updateFilters}
+            mood={mood}
+            onMoodChange={setMood}
+            runtime={runtime}
+            onRuntimeChange={setRuntime}
+          />
 
           {isLoading && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
@@ -106,7 +162,7 @@ export function DashboardClient({ initialWeeks, initialTitles }: DashboardClient
           {!isLoading && hasActiveFilters && (
             <div>
               <p className="mb-4 text-sm text-muted-foreground">
-                <AnimatedCounter value={data?.total ?? 0} /> result{(data?.total ?? 0) !== 1 ? "s" : ""}
+                <AnimatedCounter value={titles.length} /> result{titles.length !== 1 ? "s" : ""}
               </p>
               <CatalogSection
                 title={t("section.filteredMovies")}
@@ -120,9 +176,7 @@ export function DashboardClient({ initialWeeks, initialTitles }: DashboardClient
                 titles={titles.filter((t) => t.type === "SERIES")}
                 emptyLabel=""
               />
-              {titles.length === 0 && (
-                <p className="py-16 text-center text-sm text-muted-foreground">{t("noResults")}</p>
-              )}
+              {titles.length === 0 && <EmptyState message={t("noResults")} />}
             </div>
           )}
 

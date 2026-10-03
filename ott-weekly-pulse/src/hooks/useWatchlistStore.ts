@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { getOrCreateUserToken } from "@/lib/utils";
+import { scopedStoreName } from "@/lib/household";
 
 interface WatchlistState {
   titleIds: string[];
@@ -33,6 +34,6 @@ export const useWatchlistStore = create<WatchlistState>()(
         }
       }
     }),
-    { name: "owp-watchlist" }
+    { name: scopedStoreName("owp-watchlist") }
   )
 );

@@ -11,9 +11,10 @@ import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useI18n } from "@/components/LanguageProvider";
+import { EmptyState } from "@/components/EmptyState";
 import { useViewPreferences, sortTitles, type SortMode } from "@/hooks/useViewPreferences";
 import { useMyPlatformsStore } from "@/hooks/useMyPlatformsStore";
-import { CalendarRange, Clapperboard, Tv, BookOpen, ChevronDown, LayoutGrid, List, ArrowUpDown } from "lucide-react";
+import { CalendarRange, Clapperboard, Tv, BookOpen, ChevronDown, LayoutGrid, List, LayoutTemplate, ArrowUpDown } from "lucide-react";
 
 const gridVariants = {
   hidden: {},
@@ -64,7 +65,7 @@ export function CatalogSection({
         <span className="chip !py-1 text-[11px]"><AnimatedCounter value={sorted.length} /> title{sorted.length !== 1 ? "s" : ""}</span>
       </div>
 
-      {viewMode === "grid" ? (
+      {viewMode === "grid" && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {shown.map((t) => (
             <motion.div key={t.id} variants={cardVariants}>
@@ -74,7 +75,32 @@ export function CatalogSection({
             </motion.div>
           ))}
         </div>
-      ) : (
+      )}
+
+      {viewMode === "bento" && (
+        // Editorial picks (must-watch / top-ranked) get a bigger tile so
+        // the grid isn't uniform — the same distinction TitleCard's badge
+        // already draws, just carried into the layout itself. Falls back
+        // to a plain grid cell for everything else.
+        <div className="grid auto-rows-[1fr] grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+          {shown.map((t, i) => {
+            const featured = (t.isMustWatch || i === 0) && i < 3;
+            return (
+              <motion.div
+                key={t.id}
+                variants={cardVariants}
+                className={cn(featured ? "col-span-2 row-span-2" : "col-span-1")}
+              >
+                <ErrorBoundary fallbackLabel="Couldn't load this title.">
+                  <TitleCard title={t} className="h-full" />
+                </ErrorBoundary>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+
+      {viewMode === "list" && (
         <div className="space-y-2">
           {shown.map((t) => (
             <motion.div key={t.id} variants={cardVariants}>
@@ -93,7 +119,7 @@ export function CatalogSection({
           </Button>
         </div>
       )}
-      {sorted.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">{emptyLabel}</p>}
+      {sorted.length === 0 && emptyLabel && <EmptyState message={emptyLabel} />}
     </motion.section>
   );
 }
@@ -143,6 +169,13 @@ function DisplayToolbar() {
             aria-label="List view"
           >
             <List className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setViewMode("bento")}
+            className={cn("flex h-9 w-9 items-center justify-center transition-colors", viewMode === "bento" ? "bg-accent text-white" : "hover:bg-[hsl(var(--foreground)/0.06)]")}
+            aria-label="Bento view"
+          >
+            <LayoutTemplate className="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -209,7 +242,10 @@ export function ReleaseCalendar({ titles }: { titles: Title[] }) {
       <CatalogSection title={t("section.documentaries")} icon={BookOpen} titles={documentaries} emptyLabel="" />
 
       {visible.length === 0 && (
-        <p className="py-16 text-center text-sm text-muted-foreground">No releases match this filter — try another day{myPlatformsOnly ? " or turn off My Platforms Only" : ""}.</p>
+        <EmptyState
+          message="No releases match this filter"
+          hint={`Try another day${myPlatformsOnly ? ", or turn off My Platforms Only" : ""}.`}
+        />
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { scopedStoreName } from "@/lib/household";
 
 interface WatchedItem {
   id: string;
@@ -29,6 +30,6 @@ export const useWatchedStore = create<WatchedState>()(
         set({ items: exists ? current.filter((i) => i.id !== item.id) : [{ ...item, watchedAt: Date.now() }, ...current] });
       }
     }),
-    { name: "owp-watched" }
+    { name: scopedStoreName("owp-watched") }
   )
 );

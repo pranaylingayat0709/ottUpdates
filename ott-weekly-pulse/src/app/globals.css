@@ -47,6 +47,22 @@
     --shadow-opacity: 0.35;
   }
 
+  /* Accent theme picker — swaps --primary/--accent/--ring only, so every
+     component that already reads those variables (gradients, chips,
+     rings, the header logo) re-themes for free. "violet" matches the
+     :root/.dark defaults above and needs no override. */
+  :root[data-accent="ocean"] { --primary: 201 90% 45%; --accent: 217 91% 60%; --ring: 201 90% 45%; }
+  .dark[data-accent="ocean"] { --primary: 201 90% 58%; --accent: 217 91% 68%; --ring: 201 90% 58%; }
+
+  :root[data-accent="emerald"] { --primary: 152 60% 38%; --accent: 168 76% 42%; --ring: 152 60% 38%; }
+  .dark[data-accent="emerald"] { --primary: 152 55% 50%; --accent: 168 70% 52%; --ring: 152 55% 50%; }
+
+  :root[data-accent="sunset"] { --primary: 24 90% 52%; --accent: 340 82% 56%; --ring: 24 90% 52%; }
+  .dark[data-accent="sunset"] { --primary: 24 90% 60%; --accent: 340 85% 64%; --ring: 24 90% 60%; }
+
+  :root[data-accent="crimson"] { --primary: 350 78% 48%; --accent: 12 85% 55%; --ring: 350 78% 48%; }
+  .dark[data-accent="crimson"] { --primary: 350 80% 58%; --accent: 12 88% 62%; --ring: 350 80% 58%; }
+
   * { @apply border-border; }
 
   html {

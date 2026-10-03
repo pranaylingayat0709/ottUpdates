@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Share2, Clock3, Check } from "lucide-react";
 import { useTitleCount, useTitles, DEFAULT_TITLE_FILTERS } from "@/hooks/useTitles";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
@@ -21,7 +21,7 @@ function formatUpdatedAt(iso: string | null | undefined): string | null {
 // and frozen for the week (see the caching rework), the data can
 // genuinely be a few days old, and showing that honestly matters more
 // than looking freshly-refreshed.
-export function WeekStatsBar({ weeks }: { weeks: WeekMeta[] }) {
+export function WeekStatsBar({ weeks, extraAction }: { weeks: WeekMeta[]; extraAction?: ReactNode }) {
   const currentWeek = weeks.find((w) => w.isCurrent);
   const nextWeek = weeks.find((w) => !w.isCurrent && new Date(w.weekStartDate) > new Date());
 
@@ -82,10 +82,13 @@ export function WeekStatsBar({ weeks }: { weeks: WeekMeta[] }) {
           </p>
         )}
       </div>
-      <button onClick={shareWeek} className="chip flex shrink-0 items-center gap-1.5">
-        {shared ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
-        {shared ? "Copied!" : "Share This Week's List"}
-      </button>
+      <div className="flex shrink-0 items-center gap-2">
+        {extraAction}
+        <button onClick={shareWeek} className="chip flex items-center gap-1.5">
+          {shared ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
+          {shared ? "Copied!" : "Share This Week's List"}
+        </button>
+      </div>
     </div>
   );
 }

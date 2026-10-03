@@ -1,5 +1,6 @@
 import { Star, Award, Users } from "lucide-react";
 import type { Title } from "@/lib/types";
+import { PredictedRatingChip } from "@/components/PredictedRatingChip";
 
 function RatingChip({ icon: Icon, label, value, tone }: { icon: React.ElementType; label: string; value: string; tone: string }) {
   return (
@@ -26,6 +27,7 @@ export function RatingRow({ title }: { title: Title }) {
         value={title.communityVotes > 0 ? `${title.communityScore.toFixed(1)}/10` : "New"}
         tone="text-emerald-400"
       />
+      <PredictedRatingChip title={title} />
     </div>
   );
 }

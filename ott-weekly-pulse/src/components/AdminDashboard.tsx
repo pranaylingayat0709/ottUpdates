@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PosterImage } from "@/components/PosterImage";
-import { EyeOff, Eye, Save, LogOut, Pin, RefreshCw, AlertTriangle, Database } from "lucide-react";
+import { EyeOff, Eye, Save, LogOut, Pin, RefreshCw, AlertTriangle, Database, PlusCircle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Title } from "@/lib/types";
 
@@ -40,6 +40,9 @@ export function AdminDashboard() {
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [curatedStatus, setCuratedStatus] = useState<CuratedStatus | null>(null);
+  const [pinnedJson, setPinnedJson] = useState("");
+  const [pinnedJsonError, setPinnedJsonError] = useState<string | null>(null);
+  const [demoPreview, setDemoPreview] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -53,6 +56,7 @@ export function AdminDashboard() {
       const overridesData = await overridesRes.json();
       setTitles(titlesData.titles ?? []);
       setOverrides(overridesData);
+      setPinnedJson(JSON.stringify(overridesData.pinnedTitles ?? [], null, 2));
       if (curatedRes.ok) setCuratedStatus(await curatedRes.json());
     } finally {
       setLoading(false);
@@ -75,6 +79,25 @@ export function AdminDashboard() {
     const draft = posterDrafts[name];
     if (!draft) return;
     setOverrides((o) => ({ ...o, posterOverrides: { ...o.posterOverrides, [name.toLowerCase()]: draft } }));
+  }
+
+  function applyPinnedJson() {
+    try {
+      const parsed = JSON.parse(pinnedJson);
+      if (!Array.isArray(parsed)) throw new Error("Must be a JSON array of title objects");
+      setOverrides((o) => ({ ...o, pinnedTitles: parsed }));
+      setPinnedJsonError(null);
+    } catch (e) {
+      setPinnedJsonError(e instanceof Error ? e.message : "Invalid JSON");
+    }
+  }
+
+  function removePinned(index: number) {
+    setOverrides((o) => {
+      const next = o.pinnedTitles.filter((_, i) => i !== index);
+      setPinnedJson(JSON.stringify(next, null, 2));
+      return { ...o, pinnedTitles: next };
+    });
   }
 
   async function save() {
@@ -106,11 +129,29 @@ export function AdminDashboard() {
           <p className="text-xs text-muted-foreground">Hide bad entries or fix poster URLs — changes apply immediately, no deploy needed.</p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant={demoPreview ? "default" : "outline"}
+            size="sm"
+            onClick={() => setDemoPreview((v) => !v)}
+            title="Preview only — doesn't change what real visitors see"
+          >
+            <Eye className="h-3.5 w-3.5" /> {demoPreview ? "Exit Demo Preview" : "Preview as Demo Mode"}
+          </Button>
           <Button variant="outline" size="sm" onClick={load}><RefreshCw className="h-3.5 w-3.5" /> Refresh</Button>
           <Button size="sm" onClick={save} disabled={saving}><Save className="h-3.5 w-3.5" /> {saving ? "Saving..." : "Save Changes"}</Button>
           <Button variant="ghost" size="sm" onClick={logout}><LogOut className="h-3.5 w-3.5" /></Button>
         </div>
       </div>
+
+      {demoPreview && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-300">
+          <Database className="h-4 w-4 shrink-0" />
+          <span>
+            <strong>PREVIEW: DEMO MODE</strong> — this is a local-only preview of the banner visitors would see if no Watchmode/TMDB key were
+            configured. It doesn&apos;t change live data or what real visitors currently see — toggle off to return to the real status below.
+          </span>
+        </div>
+      )}
 
       {curatedStatus?.dataSource && (
         <div
@@ -182,11 +223,44 @@ export function AdminDashboard() {
       )}
 
       {savedAt && <p className="mb-4 text-xs text-emerald-400">Saved — live for all visitors now.</p>}
-      {overrides.pinnedTitles.length > 0 && (
-        <p className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Pin className="h-3.5 w-3.5" /> {overrides.pinnedTitles.length} manually pinned title(s) active this week.
+
+      <div className="glass-panel mb-6 p-4">
+        <h2 className="mb-1 flex items-center gap-2 text-sm font-bold">
+          <Pin className="h-4 w-4 text-accent" /> Pinned Titles ({overrides.pinnedTitles.length})
+        </h2>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Manually-added titles the live APIs missed. Edit the JSON array below (same shape as a mock-data.ts seed — needs at minimum{" "}
+          <code>title</code>, <code>weekStartDate</code>, <code>dayOffset</code>) and click Apply, or remove one below.
         </p>
-      )}
+
+        {overrides.pinnedTitles.length > 0 && (
+          <div className="mb-3 space-y-1.5">
+            {overrides.pinnedTitles.map((seed, i) => {
+              const s = seed as { title?: string; weekStartDate?: string };
+              return (
+                <div key={i} className="flex items-center justify-between rounded-lg bg-[hsl(var(--foreground)/0.04)] px-3 py-1.5 text-xs">
+                  <span className="truncate">{s.title ?? "(untitled)"} <span className="text-muted-foreground">· {s.weekStartDate ?? "no date"}</span></span>
+                  <button onClick={() => removePinned(i)} className="shrink-0 text-muted-foreground hover:text-rose-400" aria-label="Remove pinned title">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <textarea
+          value={pinnedJson}
+          onChange={(e) => setPinnedJson(e.target.value)}
+          rows={8}
+          spellCheck={false}
+          className="w-full rounded-lg border border-[hsl(var(--foreground)/0.1)] bg-[hsl(var(--foreground)/0.03)] p-2 font-mono text-[11px]"
+        />
+        {pinnedJsonError && <p className="mt-1 text-xs text-rose-400">{pinnedJsonError}</p>}
+        <Button variant="outline" size="sm" className="mt-2" onClick={applyPinnedJson}>
+          <PlusCircle className="h-3.5 w-3.5" /> Apply JSON (then Save Changes to publish)
+        </Button>
+      </div>
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading this week's catalog...</p>

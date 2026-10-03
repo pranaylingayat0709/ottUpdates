@@ -1,7 +1,7 @@
 "use client";
 import useEmblaCarousel from "embla-carousel-react";
-import { useCallback, useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
 import { ChevronLeft, ChevronRight, Film, PlayCircle, Star } from "lucide-react";
 import type { Title } from "@/lib/types";
 import { PLATFORM_LABELS } from "@/lib/types";
@@ -20,6 +20,14 @@ export function HeroCarousel({ titles }: { titles: Title[] }) {
   const [activeTitleId, setActiveTitleId] = useState<string | null>(null);
   const { t } = useI18n();
   const playTrailer = useTrailerPlayer((s) => s.play);
+  const sectionRef = useRef<HTMLElement>(null);
+  // Subtle scroll-driven depth: the backdrop drifts a little slower than
+  // the page as the hero scrolls out of view. Applied to a slightly
+  // over-scanned wrapper (see the h-[112%]/-top-[6%] below) so the
+  // translation never reveals an edge, and to a separate element from the
+  // Ken Burns zoom so the two transforms don't fight over the same node.
+  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end start"] });
+  const parallaxY = useTransform(scrollYProgress, [0, 1], [0, 40]);
 
   const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi]);
   const scrollNext = useCallback(() => emblaApi?.scrollNext(), [emblaApi]);
@@ -42,6 +50,7 @@ export function HeroCarousel({ titles }: { titles: Title[] }) {
 
   return (
     <motion.section
+      ref={sectionRef}
       className="relative -mx-4 mb-10 overflow-hidden sm:-mx-6 lg:-mx-8"
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
@@ -66,18 +75,20 @@ export function HeroCarousel({ titles }: { titles: Title[] }) {
           {titles.map((title, i) => (
             <div key={title.id} className="relative min-w-0 flex-[0_0_100%] px-4 sm:px-6 lg:px-8">
               <div className="relative aspect-[16/10] w-full overflow-hidden rounded-3xl border border-[hsl(var(--foreground)/0.1)] sm:aspect-[21/9]">
-                <div className={cn("absolute inset-0", selected === i && "animate-[kenburns_9s_ease-out_forwards]")}>
-                  <PosterImage
-                    src={title.backdropUrl || title.posterUrl}
-                    alt={title.title}
-                    fill
-                    priority={i === 0}
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1280px"
-                    quality={70}
-                    className="object-cover"
-                    label="Image not available"
-                  />
-                </div>
+                <motion.div className="absolute inset-x-0 -top-[6%] h-[112%]" style={{ y: parallaxY }}>
+                  <div className={cn("absolute inset-0", selected === i && "animate-[kenburns_9s_ease-out_forwards]")}>
+                    <PosterImage
+                      src={title.backdropUrl || title.posterUrl}
+                      alt={title.title}
+                      fill
+                      priority={i === 0}
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1280px"
+                      quality={70}
+                      className="object-cover"
+                      label="Image not available"
+                    />
+                  </div>
+                </motion.div>
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/10 to-transparent" />
 

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { Inter, Sora } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { AccentProvider } from "@/components/AccentProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import { SiteHeader } from "@/components/SiteHeader";
 import { FooterTagline } from "@/components/FooterTagline";
@@ -11,11 +13,19 @@ import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { BackToTop } from "@/components/BackToTop";
+import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
+import { CollectionImportHandler } from "@/components/CollectionImportHandler";
+import { Suspense } from "react";
 
-// Using the system font stack (configured in tailwind.config.ts / globals.css)
-// instead of next/font/google so the app builds and renders instantly in
-// network-restricted environments too. Swap in next/font/google's Inter
-// loader here if you want a bundled webfont in production.
+// Inter for body copy (readable, neutral at small sizes) and Sora for
+// display/heading use — a bolder, slightly geometric face that gives
+// titles and section headers real presence instead of the previous
+// system-font-everywhere look. next/font/google self-hosts both at build
+// time (Vercel's build has full network access), so there's no runtime
+// request to Google Fonts and no font-loading flash. Falls back to
+// system-ui if a build ever runs somewhere without network access.
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
+const sora = Sora({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-display", display: "swap" });
 
 export const metadata: Metadata = {
   title: "OTT Weekly Pulse — Weekly Movie & Series Picks",
@@ -46,17 +56,22 @@ const THEME_INIT_SCRIPT = `
   } catch (e) {
     document.documentElement.classList.add('dark');
   }
+  try {
+    var accent = localStorage.getItem('owp-accent');
+    if (accent) document.documentElement.setAttribute('data-accent', accent);
+  } catch (e) {}
 })();
 `;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" className={`dark ${inter.variable} ${sora.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="min-h-screen font-sans">
         <ThemeProvider>
+          <AccentProvider>
           <LanguageProvider>
             <Providers>
               <SiteHeader />
@@ -71,8 +86,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <ServiceWorkerRegister />
               <MobileBottomNav />
               <BackToTop />
+              <KeyboardShortcuts />
+              <Suspense fallback={null}>
+                <CollectionImportHandler />
+              </Suspense>
             </Providers>
           </LanguageProvider>
+          </AccentProvider>
         </ThemeProvider>
         <Analytics />
       </body>

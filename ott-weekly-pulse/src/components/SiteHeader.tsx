@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
-import { Bookmark, Clapperboard, Scale, TrendingUp, Tv } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Bookmark, Clapperboard, Scale, Search, TrendingUp, Tv, User } from "lucide-react";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { useMyPlatformsStore } from "@/hooks/useMyPlatformsStore";
 import { useState, useEffect } from "react";
@@ -11,6 +12,8 @@ import { useTasteStore } from "@/hooks/useTasteStore";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { useI18n } from "@/components/LanguageProvider";
+import { useWeeks, useTitles, DEFAULT_TITLE_FILTERS } from "@/hooks/useTitles";
+import { HouseholdSwitcher } from "@/components/HouseholdSwitcher";
 
 export function SiteHeader() {
   const count = useWatchlistStore((s) => s.titleIds.length);
@@ -21,6 +24,28 @@ export function SiteHeader() {
   const hasOnboardedPlatforms = useMyPlatformsStore((s) => s.hasOnboarded);
   const hasOnboardedTaste = useTasteStore((s) => s.hasOnboarded);
   const { t } = useI18n();
+
+  // Condensed strip that fades in once you've scrolled past the hero —
+  // week label + new-title count stay visible while browsing, plus a
+  // quick way back to search without scrolling all the way up.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    function onScroll() {
+      setScrolled(window.scrollY > 420);
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const { data: weeks = [] } = useWeeks();
+  const currentWeek = weeks.find((w) => w.isCurrent);
+  const { data: currentData } = useTitles(currentWeek?.id, DEFAULT_TITLE_FILTERS);
+
+  function jumpToSearch() {
+    const el = document.getElementById("site-search-input");
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    (el as HTMLInputElement | null)?.focus();
+  }
 
   // First-visit nudges, chained one after another rather than both at
   // once: platforms first, then taste genres once that's dismissed.
@@ -56,11 +81,15 @@ export function SiteHeader() {
         </Link>
 
         <div className="flex items-center gap-2">
+          <HouseholdSwitcher />
           <Link href="/top-10" className="chip hidden sm:inline-flex">
             <TrendingUp className="h-3.5 w-3.5" /> Top 10
           </Link>
           <Link href="/compare" className="chip hidden sm:inline-flex">
             <Scale className="h-3.5 w-3.5" /> Compare
+          </Link>
+          <Link href="/profile" className="chip hidden sm:inline-flex">
+            <User className="h-3.5 w-3.5" /> Profile
           </Link>
           <button onClick={() => setPlatformsOpen(true)} className="chip relative hidden sm:inline-flex" aria-label="My Platforms">
             <Tv className="h-3.5 w-3.5" /> My Platforms
@@ -87,6 +116,28 @@ export function SiteHeader() {
           <ThemeToggle />
         </div>
       </div>
+      <AnimatePresence>
+        {scrolled && currentWeek && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="overflow-hidden border-t"
+            style={{ borderColor: "hsl(var(--foreground) / 0.06)" }}
+          >
+            <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 text-xs sm:px-6 lg:px-8">
+              <span className="text-muted-foreground">
+                <strong className="text-foreground">{currentWeek.label}</strong>
+                {currentData?.total !== undefined && ` · ${currentData.total} new this week`}
+              </span>
+              <button onClick={jumpToSearch} className="chip !py-1" aria-label="Jump to search">
+                <Search className="h-3 w-3" /> Search
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <WatchlistDrawer open={drawerOpen} onOpenChange={setDrawerOpen} />
       <MyPlatformsPicker open={platformsOpen} onOpenChange={setPlatformsOpen} />
       <TasteOnboardingModal open={tasteOpen} onOpenChange={setTasteOpen} />

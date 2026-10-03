@@ -2,7 +2,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type ViewMode = "grid" | "list";
+export type ViewMode = "grid" | "list" | "bento";
 export type SortMode = "newest" | "rating" | "popular" | "alpha";
 
 interface ViewPreferencesState {

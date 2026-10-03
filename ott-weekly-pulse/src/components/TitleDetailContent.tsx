@@ -15,6 +15,7 @@ import { MoreLikeThis } from "@/components/MoreLikeThis";
 import { ReviewsSection } from "@/components/ReviewsSection";
 import { Button } from "@/components/ui/button";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
+import { AddToCollectionButton } from "@/components/AddToCollectionButton";
 import { useReminderStore } from "@/hooks/useReminderStore";
 import { useWatchedStore } from "@/hooks/useWatchedStore";
 import { useRecentlyViewedStore } from "@/hooks/useRecentlyViewedStore";
@@ -24,6 +25,9 @@ import { getTrailerAction } from "@/lib/youtube";
 import { subscribeForTitle } from "@/hooks/usePushNotifications";
 import { ShareButton } from "@/components/ShareButton";
 import { format } from "date-fns";
+import { downloadReleaseReminderIcs } from "@/lib/ics";
+import { CalendarPlus } from "lucide-react";
+import { ConfettiBurst } from "@/components/ConfettiBurst";
 
 export function TitleDetailContent({ title }: { title: Title }) {
   const saved = useWatchlistStore((s) => s.isSaved(title.id));
@@ -33,6 +37,14 @@ export function TitleDetailContent({ title }: { title: Title }) {
   const toggleReminder = useReminderStore((s) => s.toggle);
   const watched = useWatchedStore((s) => s.isWatched(title.id));
   const [showReviewPrompt, setShowReviewPrompt] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  // Spoiler-free mode: show just the first sentence by default, with an
+  // explicit opt-in to read the rest. Only offered when there's actually
+  // more to hide — a one-sentence synopsis has nothing to spoil.
+  const [showFullSynopsis, setShowFullSynopsis] = useState(false);
+  const firstSentenceMatch = title.synopsis.match(/^.*?[.!?](?:\s|$)/);
+  const spoilerSafeSynopsis = firstSentenceMatch ? firstSentenceMatch[0].trim() : title.synopsis;
+  const spoilerSafeAvailable = spoilerSafeSynopsis.length < title.synopsis.length - 15;
   const toggleWatched = useWatchedStore((s) => s.toggle);
   const { t } = useI18n();
   const recordView = useRecentlyViewedStore((s) => s.record);
@@ -100,8 +112,20 @@ export function TitleDetailContent({ title }: { title: Title }) {
         <RatingRow title={title} />
 
         <div>
-          <h4 className="mb-1.5 text-sm font-bold">Synopsis</h4>
-          <p className="text-sm leading-relaxed text-muted-foreground">{title.synopsis}</p>
+          <h4 className="mb-1.5 flex items-center justify-between text-sm font-bold">
+            Synopsis
+            {spoilerSafeAvailable && (
+              <button
+                onClick={() => setShowFullSynopsis((v) => !v)}
+                className="text-[11px] font-medium text-accent hover:underline"
+              >
+                {showFullSynopsis ? "Hide full synopsis" : "Show full synopsis"}
+              </button>
+            )}
+          </h4>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {spoilerSafeAvailable && !showFullSynopsis ? spoilerSafeSynopsis : title.synopsis}
+          </p>
         </div>
 
         {title.cast.length > 0 && (
@@ -184,7 +208,17 @@ export function TitleDetailContent({ title }: { title: Title }) {
                 <BellRing className={cn("h-3.5 w-3.5", reminded && "fill-current")} />
                 {reminded ? t("title.reminderSet") : t("title.notifyMe")}
               </Button>
-            ) : (
+            ) : null}
+            {isUpcoming && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadReleaseReminderIcs({ title: title.title, releaseDate: title.releaseDate, synopsis: title.synopsis })}
+              >
+                <CalendarPlus className="h-3.5 w-3.5" /> Add to Calendar
+              </Button>
+            )}
+            {!isUpcoming && (
               <Button
                 variant="outline"
                 size="sm"
@@ -194,19 +228,27 @@ export function TitleDetailContent({ title }: { title: Title }) {
                 <Bookmark className={cn("h-3.5 w-3.5", saved && "fill-current")} /> {saved ? t("title.saved") : t("title.addToWatchlist")}
               </Button>
             )}
+            <AddToCollectionButton titleId={title.id} />
             {!isUpcoming && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const wasWatched = watched;
-                  toggleWatched({ id: title.id, title: title.title, posterUrl: title.posterUrl });
-                  if (!wasWatched) setShowReviewPrompt(true);
-                }}
-                className={cn(watched && "border-emerald-500/50 text-emerald-400")}
-              >
-                <CheckCircle2 className={cn("h-3.5 w-3.5", watched && "fill-current")} /> {watched ? "Watched" : "Mark as Watched"}
-              </Button>
+              <div className="relative">
+                <ConfettiBurst show={showConfetti} />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const wasWatched = watched;
+                    toggleWatched({ id: title.id, title: title.title, posterUrl: title.posterUrl });
+                    if (!wasWatched) {
+                      setShowReviewPrompt(true);
+                      setShowConfetti(true);
+                      setTimeout(() => setShowConfetti(false), 750);
+                    }
+                  }}
+                  className={cn(watched && "border-emerald-500/50 text-emerald-400")}
+                >
+                  <CheckCircle2 className={cn("h-3.5 w-3.5", watched && "fill-current")} /> {watched ? "Watched" : "Mark as Watched"}
+                </Button>
+              </div>
             )}
             <ShareButton title={title.title} url={typeof window !== "undefined" ? `${window.location.origin}/title/${title.id}` : `/title/${title.id}`} />
           </div>

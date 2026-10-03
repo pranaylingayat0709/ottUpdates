@@ -1,6 +1,7 @@
 "use client";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { scopedStoreName } from "@/lib/household";
 
 // Client-only "Notify Me" list for upcoming-week titles that haven't
 // released yet. Honest scope: since there's no email/push backend wired
@@ -37,6 +38,6 @@ export const useReminderStore = create<ReminderState>()(
         set((s) => ({ dismissedTitles: [...s.dismissedTitles, titleName] }));
       }
     }),
-    { name: "owp-reminders" }
+    { name: scopedStoreName("owp-reminders") }
   )
 );

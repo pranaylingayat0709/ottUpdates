@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useI18n } from "@/components/LanguageProvider";
+import { MOOD_OPTIONS, type MoodKey, type RuntimeKey } from "@/lib/moods";
 
 const TYPE_OPTIONS: { value: NonNullable<TitleFilters["type"]>; label: string }[] = [
   { value: "ALL", label: "All Types" },
@@ -33,10 +34,18 @@ const RATING_OPTIONS = [
 
 export function FilterBar({
   filters,
-  onChange
+  onChange,
+  mood,
+  onMoodChange,
+  runtime,
+  onRuntimeChange
 }: {
   filters: TitleFilters;
   onChange: (next: Partial<TitleFilters>) => void;
+  mood?: MoodKey | "ALL";
+  onMoodChange?: (v: MoodKey | "ALL") => void;
+  runtime?: RuntimeKey | "ALL";
+  onRuntimeChange?: (v: RuntimeKey | "ALL") => void;
 }) {
   const { t } = useI18n();
   // Local input state updates instantly for a responsive feel; the actual
@@ -60,7 +69,9 @@ export function FilterBar({
     filters.language !== "ALL" && filters.language,
     filters.platform !== "ALL" && filters.platform,
     filters.genre !== "ALL" && filters.genre,
-    filters.minRating
+    filters.minRating,
+    mood && mood !== "ALL" && mood,
+    runtime && runtime !== "ALL" && runtime
   ].filter(Boolean).length;
 
   return (
@@ -68,6 +79,7 @@ export function FilterBar({
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
+          id="site-search-input"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder={t("filter.searchPlaceholder")}
@@ -133,12 +145,37 @@ export function FilterBar({
           </SelectContent>
         </Select>
 
+        {onMoodChange && (
+          <Select value={mood ?? "ALL"} onValueChange={(v) => onMoodChange(v as MoodKey | "ALL")}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Any Mood</SelectItem>
+              {MOOD_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+
+        {onRuntimeChange && (
+          <Select value={runtime ?? "ALL"} onValueChange={(v) => onRuntimeChange(v as RuntimeKey | "ALL")}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Any Length</SelectItem>
+              <SelectItem value="SHORT">Short Movies (≤100m)</SelectItem>
+              <SelectItem value="BINGE">Binge-Worthy Series</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+
         {activeCount > 0 && (
           <Button
             variant="ghost"
             size="sm"
             className={cn("text-muted-foreground")}
-            onClick={() => onChange({ type: "ALL", language: "ALL", platform: "ALL", genre: "ALL", minRating: undefined })}
+            onClick={() => {
+              onChange({ type: "ALL", language: "ALL", platform: "ALL", genre: "ALL", minRating: undefined });
+              onMoodChange?.("ALL");
+              onRuntimeChange?.("ALL");
+            }}
           >
             {t("filter.clearAll")}
           </Button>
