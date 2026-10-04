@@ -12,7 +12,7 @@ import { getAdjacentWeek, getCurrentWeekRange, getWeekLabel } from "@/lib/week";
 import type { Title, WeekMeta, TitleFilters, Review, SubRatings } from "@/lib/types";
 import { generateAiVerdict, generateCriticsTake } from "@/lib/nvidia";
 import { fetchLiveTitlesForWeek, isLiveDataEnabled } from "@/lib/tmdb";
-import { fetchWatchmodeTitlesForWeek, isWatchmodeEnabled } from "@/lib/watchmode";
+import { fetchWatchmodeTitlesForWeek, isWatchmodeEnabled, getLastWatchmodeError } from "@/lib/watchmode";
 import { kvGet, kvSet } from "@/lib/kv-cache";
 import { getOverrides } from "@/lib/admin-overrides";
 import { addCommunityRating, getCommunityRatings, aggregateToScore } from "@/lib/community-ratings";
@@ -293,10 +293,30 @@ async function assembleTitlesForWeek(weekId?: string): Promise<Title[]> {
     return listDateMatchedCuratedTitles(weekId, weekStartDate, weekEndDate);
   }
 
+  // Recorded BEFORE the fetch so we can tell, right after, whether THIS
+  // particular batch is the one that hit a Watchmode error — not some
+  // earlier, already-resolved failure from a previous request on this
+  // same warm instance.
+  const watchmodeErrorBefore = getLastWatchmodeError();
+
   const [watchmodeResults, tmdbResults] = await Promise.all([
     isWatchmodeEnabled() ? fetchWatchmodeTitlesForWeek(weekStartDate, weekEndDate, resolvedWeekId) : Promise.resolve(null),
     isLiveDataEnabled() ? fetchLiveTitlesForWeek(weekStartDate, weekEndDate, resolvedWeekId) : Promise.resolve(null)
   ]);
+
+  // toTitle() in watchmode.ts fetches sources+details PER CANDIDATE
+  // concurrently and silently drops (returns null for) any candidate
+  // whose call failed — including a 429 once the free-tier quota runs
+  // out mid-batch. That makes `watchmodeResults` a smaller, effectively
+  // random subset of the real week's lineup whenever quota is tight,
+  // not an honest "the week only had N releases". Confirmed live: the
+  // same current week returned 15, then 2, then 24 titles across
+  // requests made minutes apart. If this is allowed to freeze below,
+  // that partial subset becomes THE week's catalog for the next 35 days
+  // (STORED_SNAPSHOT_TTL_SECONDS) for every visitor — this flag is what
+  // stops that.
+  const watchmodeErrorAfter = getLastWatchmodeError();
+  const degradedByWatchmodeError = isWatchmodeEnabled() && !!watchmodeErrorAfter && watchmodeErrorAfter.at !== watchmodeErrorBefore?.at;
 
   const seenNames = new Set<string>();
   let live: Title[] = [];
@@ -320,6 +340,20 @@ async function assembleTitlesForWeek(weekId?: string): Promise<Title[]> {
 
   const withCurated = mergeCuratedTitles(live, weekStartDate, weekEndDate);
   const balanced = prioritizeIndianLanguages(withCurated, weekStartDate, weekEndDate);
+
+  if (degradedByWatchmodeError) {
+    // Serve this result for THIS request only — don't freeze it into the
+    // in-memory cache or KV. Leaving both unwritten means the next request
+    // (on this same warm instance, or a fresh one) gets another chance at
+    // a clean fetch; whichever request succeeds without a Watchmode error
+    // is the one that actually gets frozen below, for everyone, for the
+    // rest of the week.
+    console.error(
+      `[data-source] Serving ${balanced.length} title(s) for ${resolvedWeekId} WITHOUT caching — Watchmode errored mid-fetch (${watchmodeErrorAfter?.status ?? "?"}: ${watchmodeErrorAfter?.message ?? ""}). Will retry fresh next request.`
+    );
+    return balanced;
+  }
+
   LIVE_CACHE.set(resolvedWeekId, { data: balanced, expiresAt: Date.now() + LIVE_CACHE_TTL_MS });
   // Stored with the long TTL, not the 1-hour in-memory one — this is the
   // frozen snapshot every later request to this week (this week and every
