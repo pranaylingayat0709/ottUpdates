@@ -1,12 +1,21 @@
 import { DashboardClient } from "@/components/DashboardClient";
 import { listWeeks, listTitlesForWeek } from "@/lib/data-source";
 
-// Revalidate at most every 10 minutes (matches data-source.ts's own cache
-// window) — without this, Next.js would statically bake in whatever data
-// was available at BUILD time and never refresh it, defeating the entire
-// point of live weekly data. This keeps the SEO benefit of a server-
-// rendered page while still reflecting the actual current week.
-export const revalidate = 600;
+// How long Next.js can serve a statically-rendered copy of this page
+// before regenerating it from listTitlesForWeek() again. This does NOT
+// control how often Watchmode gets called — that's entirely gated by
+// data-source.ts's own LIVE_CACHE (1h) / KV (35-day) freeze, which this
+// page reads from either way. A cache miss there still only costs one
+// cheap in-process/KV read; the expensive live Watchmode fetch only
+// happens on an actual cache miss in THAT layer. So this number is safe
+// to keep short — it only trades "how stale can the public page be after
+// the underlying data already refreshed" against regeneration frequency.
+// Lowered from 600s (10min) to 120s: at 600s, a visitor (or the admin
+// panel, which reads the same data uncached) could see genuinely fresh
+// data while the public page kept serving a pre-refresh snapshot for up
+// to 10 minutes — exactly the "admin shows titles the site doesn't"
+// symptom. 120s keeps that gap small without adding any Watchmode cost.
+export const revalidate = 120;
 
 // Server Component: fetches the current week's real catalog server-side so
 // it's present in the initial HTML (readable by search engines and fast on

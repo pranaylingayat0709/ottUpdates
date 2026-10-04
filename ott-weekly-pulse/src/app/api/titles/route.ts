@@ -31,11 +31,16 @@ export async function GET(req: NextRequest) {
     {
       // Lets Vercel's edge CDN cache this response for repeat visitors
       // (same filter combo = same cache entry), cutting origin function
-      // invocations. 5-minute fresh window, serves stale for up to 10
-      // minutes while quietly refreshing in the background — matches the
-      // app's own internal cache window (LIVE_CACHE_TTL_MS) so this
-      // never serves noticeably staler data than the app already would.
-      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" }
+      // invocations, WITHOUT adding to Watchmode's call count — this only
+      // caches the already-assembled JSON; listTitlesForWeek() underneath
+      // still only hits Watchmode on its own cache miss regardless of this
+      // header. Shortened from 300s/600s (up to a 10-minute-stale window)
+      // to 60s/120s (up to 3 minutes): the longer window meant this route
+      // could keep serving a response cached from BEFORE the underlying
+      // data last refreshed, well after admin's uncached view already
+      // showed the new data — the exact "admin shows titles the site
+      // doesn't" symptom.
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" }
     }
   );
 }

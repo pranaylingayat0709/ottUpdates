@@ -14,13 +14,26 @@ import type { Genre, Platform, Title, OriginalLanguage } from "@/lib/types";
 const WATCHMODE_BASE_URL = "https://api.watchmode.com/v1";
 // Watchmode's free tier caps at 2,500 requests/month. Each full refresh
 // costs roughly 1 (list-titles) + candidates*2 (sources + details per
-// title) calls. With the defaults below (18 candidates, 12h refresh):
-//   1 + 18*2 = 37 calls/refresh * 2 refreshes/day * 30 days = 2,220/month
-// — safely under budget with margin. Both knobs are configurable via env
-// vars if you want to trade quota headroom for fresher data (or vice
-// versa) without a code change.
+// title) calls. data-source.ts's fetch-once-and-freeze cache means this
+// is meant to run ONCE per current week (not on a timer) — the ideal
+// cost is ~1 refresh/week, not "2 refreshes/day" as an earlier version of
+// this comment assumed. In practice it's run more often than that: every
+// serverless cold start is a potential cache miss (the in-memory
+// LIVE_CACHE resets per-instance), and the admin panel's status check
+// (/api/admin/curated-status) calls the exact same listTitlesForWeek()
+// path on every load. Real usage confirmed ~386 calls over the key's
+// first 5 weeks (~77/week) — about 2x the single-fetch-per-week ideal,
+// consistent with occasional redundant re-fetches rather than runaway
+// usage, but worth trimming. CANDIDATE_LIMIT lowered from 18 to 12
+// (1 + 12*2 = 25 calls/refresh, down from 37 — about a third less per
+// fetch) as a safer default; both knobs stay configurable via env vars
+// without a code change if you want to trade quota headroom for a
+// richer/fresher catalog, or vice versa. The bigger lever is making sure
+// a durable cache (Vercel KV) is actually attached in the project's
+// Storage tab — without it, every cold serverless instance re-fetches
+// independently instead of reusing one frozen weekly snapshot.
 const REVALIDATE_SECONDS = Number(process.env.WATCHMODE_REVALIDATE_SECONDS) || 12 * 60 * 60;
-const CANDIDATE_LIMIT = Number(process.env.WATCHMODE_CANDIDATE_LIMIT) || 18;
+const CANDIDATE_LIMIT = Number(process.env.WATCHMODE_CANDIDATE_LIMIT) || 12;
 
 // Empty string signals "no real poster" — see the matching comment in
 // tmdb.ts for why this is no longer an external placeholder-service URL.
