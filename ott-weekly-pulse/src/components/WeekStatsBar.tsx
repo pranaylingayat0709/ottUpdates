@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 import { Share2, Clock3, Check } from "lucide-react";
 import { useTitleCount, useTitles, DEFAULT_TITLE_FILTERS } from "@/hooks/useTitles";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
+import { FreshnessBadge } from "@/components/FreshnessBadge";
 import type { WeekMeta } from "@/lib/types";
 
 function formatUpdatedAt(iso: string | null | undefined): string | null {
@@ -76,7 +77,11 @@ export function WeekStatsBar({ weeks, extraAction }: { weeks: WeekMeta[]; extraA
             <AnimatedCounter value={comingSoonCount ?? 0} />
           </p>
         </div>
-        {updatedLabel && (
+        <FreshnessBadge
+          generatedAt={currentData?.generatedAt}
+          isLive={(currentData?.titles ?? []).some((t) => t.id.startsWith("wm-") || t.id.startsWith("tmdb-"))}
+        />
+        {updatedLabel && !currentData?.generatedAt && (
           <p className="flex items-center gap-1 text-xs text-muted-foreground">
             <Clock3 className="h-3.5 w-3.5 shrink-0" /> Updated on {updatedLabel}
           </p>

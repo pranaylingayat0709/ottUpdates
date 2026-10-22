@@ -4,6 +4,7 @@ import { format, isSameDay } from "date-fns";
 import { motion } from "framer-motion";
 import type { Title } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { RailsView } from "@/components/RailsView";
 import { TitleCard } from "@/components/TitleCard";
 import { TitleListRow } from "@/components/TitleListRow";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -14,7 +15,7 @@ import { useI18n } from "@/components/LanguageProvider";
 import { EmptyState } from "@/components/EmptyState";
 import { useViewPreferences, sortTitles, type SortMode } from "@/hooks/useViewPreferences";
 import { useMyPlatformsStore } from "@/hooks/useMyPlatformsStore";
-import { CalendarRange, Clapperboard, Tv, BookOpen, ChevronDown, LayoutGrid, List, LayoutTemplate, ArrowUpDown } from "lucide-react";
+import { CalendarRange, Clapperboard, Tv, BookOpen, ChevronDown, LayoutGrid, List, LayoutTemplate, ArrowUpDown, GalleryHorizontal } from "lucide-react";
 
 const gridVariants = {
   hidden: {},
@@ -47,7 +48,8 @@ export function CatalogSection({
 }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
-  const viewMode = useViewPreferences((s) => s.viewMode);
+  const storedView = useViewPreferences((s) => s.viewMode);
+  const viewMode = storedView === "rails" ? "grid" : storedView;
   const sortMode = useViewPreferences((s) => s.sortMode);
 
   const sorted = useMemo(() => sortTitles(titles, sortMode), [titles, sortMode]);
@@ -157,6 +159,15 @@ function DisplayToolbar() {
         </Select>
         <div className="flex overflow-hidden rounded-full border border-[hsl(var(--foreground)/0.1)]">
           <button
+            onClick={() => setViewMode("rails")}
+            aria-pressed={viewMode === "rails"}
+            className={cn("flex h-9 w-9 items-center justify-center transition-colors", viewMode === "rails" ? "bg-accent text-white" : "hover:bg-[hsl(var(--foreground)/0.06)]")}
+            aria-label="Discover view (shelves)"
+            title="Discover"
+          >
+            <GalleryHorizontal className="h-4 w-4" />
+          </button>
+          <button
             onClick={() => setViewMode("grid")}
             className={cn("flex h-9 w-9 items-center justify-center transition-colors", viewMode === "grid" ? "bg-accent text-white" : "hover:bg-[hsl(var(--foreground)/0.06)]")}
             aria-label="Grid view"
@@ -185,6 +196,7 @@ function DisplayToolbar() {
 
 export function ReleaseCalendar({ titles }: { titles: Title[] }) {
   const { t } = useI18n();
+  const viewMode = useViewPreferences((s) => s.viewMode);
   const myPlatforms = useMyPlatformsStore((s) => s.platforms);
   const myPlatformsOnly = useViewPreferences((s) => s.myPlatformsOnly);
 
@@ -237,9 +249,15 @@ export function ReleaseCalendar({ titles }: { titles: Title[] }) {
 
       <DisplayToolbar />
 
+      {viewMode === "rails" ? (
+        visible.length > 0 && <RailsView titles={visible} />
+      ) : (
+        <>
       <CatalogSection title={t("section.movies")} icon={Clapperboard} titles={movies} emptyLabel="No movies match this filter." />
       <CatalogSection title={t("section.webSeries")} icon={Tv} titles={series} emptyLabel="No web series match this filter." />
       <CatalogSection title={t("section.documentaries")} icon={BookOpen} titles={documentaries} emptyLabel="" />
+        </>
+      )}
 
       {visible.length === 0 && (
         <EmptyState

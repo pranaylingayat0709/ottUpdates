@@ -56,7 +56,7 @@ export function PosterImage({ src, alt, fill, width, height, sizes, className, p
         className={className}
         priority={priority}
         placeholder="blur"
-        blurDataURL={blurDataUrl()}
+        blurDataURL={blurDataUrl(32, 48, alt || src || "")}
         onError={() => setFailed(true)}
       />
     );
@@ -72,7 +72,7 @@ export function PosterImage({ src, alt, fill, width, height, sizes, className, p
       className={className}
       priority={priority}
       placeholder="blur"
-      blurDataURL={blurDataUrl()}
+      blurDataURL={blurDataUrl(32, 48, alt || src || "")}
       onError={() => setFailed(true)}
     />
   );

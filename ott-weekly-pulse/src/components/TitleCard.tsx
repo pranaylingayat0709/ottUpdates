@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { Bookmark, PlayCircle, Star, Languages } from "lucide-react";
+import { Bookmark, Check, Eye, PlayCircle, Share2, Star, Languages } from "lucide-react";
+import { useWatchedStore } from "@/hooks/useWatchedStore";
 import type { Title } from "@/lib/types";
-import { PLATFORM_LABELS, PLATFORM_COLORS } from "@/lib/types";
+import { PLATFORM_LABELS } from "@/lib/types";
+import { PlatformMark } from "@/components/PlatformMark";
 import { cn, formatRuntime } from "@/lib/utils";
 import { EditorialBadgePill } from "@/components/EditorialBadgePill";
 import { isNewThisWeek } from "@/lib/freshness";
@@ -19,6 +21,22 @@ export function TitleCard({ title, className }: { title: Title; className?: stri
   const [justSaved, setJustSaved] = useState(false);
   const saved = useWatchlistStore((s) => s.isSaved(title.id));
   const toggle = useWatchlistStore((s) => s.toggle);
+  const watched = useWatchedStore((s) => s.items.some((i) => i.id === title.id));
+  const toggleWatched = useWatchedStore((s) => s.toggle);
+  const [copied, setCopied] = useState(false);
+  async function share() {
+    const url = `${window.location.origin}/title/${title.id}`;
+    try {
+      if (navigator.share) await navigator.share({ title: title.title, url });
+      else {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }
+    } catch {
+      /* user cancelled share */
+    }
+  }
   const playTrailer = useTrailerPlayer((s) => s.play);
   const trailerAction = getTrailerAction(title.title, title.trailerUrl);
 
@@ -64,6 +82,18 @@ export function TitleCard({ title, className }: { title: Title; className?: stri
       <motion.div
         ref={cardRef}
         className={cn("group glass-card cursor-pointer overflow-hidden [perspective:800px]", className)}
+        role="group"
+        aria-label={title.title}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          // Keyboard users can open a card with Enter/Space; ignore keys
+          // bubbling up from the inner watchlist / trailer buttons.
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen(true);
+          }
+        }}
         onClick={() => setOpen(true)}
         onMouseMove={handleMouseMove}
         onMouseEnter={handleMouseEnter}
@@ -126,6 +156,30 @@ export function TitleCard({ title, className }: { title: Title; className?: stri
             <Bookmark className={cn("h-3.5 w-3.5", saved && "fill-current")} />
           </motion.button>
 
+          <div className="absolute right-2 top-11 z-10 flex flex-col gap-1.5 opacity-0 transition-opacity duration-200 focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:hidden">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleWatched({ id: title.id, title: title.title, posterUrl: title.posterUrl });
+              }}
+              aria-pressed={watched}
+              aria-label={watched ? "Mark as not watched" : "Mark as watched"}
+              className={cn("rounded-full p-1.5 backdrop-blur-md transition-colors", watched ? "bg-emerald-500 text-white" : "bg-black/40 text-white/80 hover:bg-black/60")}
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                void share();
+              }}
+              aria-label="Share title"
+              className="rounded-full bg-black/40 p-1.5 text-white/80 backdrop-blur-md transition-colors hover:bg-black/60"
+            >
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+
           <div className="absolute left-2 top-2 z-10 flex flex-col items-start gap-1">
             {title.editorialBadges[0] && <EditorialBadgePill badge={title.editorialBadges[0]} />}
             {title.isHindiDubbed && (
@@ -141,6 +195,7 @@ export function TitleCard({ title, className }: { title: Title; className?: stri
                 <Clock3 className="h-2.5 w-2.5" /> Still Streaming
               </span>
             )}
+            {title.releaseTime && <p className="text-[9px] font-medium text-emerald-300">Drops {new Date(title.releaseTime).toLocaleString("en-IN", { weekday: "short", hour: "numeric", minute: "2-digit" })}</p>}
             <p className="line-clamp-1 text-sm font-bold text-white">{title.title}</p>
             <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-white/70">
               <span>
@@ -155,9 +210,16 @@ export function TitleCard({ title, className }: { title: Title; className?: stri
               <span>·</span>
               {title.platforms[0] && (
                 <span className="flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: PLATFORM_COLORS[title.platforms[0]] }} />
+                  <PlatformMark platform={title.platforms[0]} size="xs" />
                   {PLATFORM_LABELS[title.platforms[0]] ?? title.platforms[0]}
+                  {title.platforms.length > 1 && <span className="text-white/50">+{title.platforms.length - 1}</span>}
                 </span>
+              )}
+              {title.contentRating && (
+                <>
+                  <span>·</span>
+                  <span className="rounded border border-white/30 px-1 text-[9px] leading-tight">{title.contentRating}</span>
+                </>
               )}
               {title.imdbRating && (
                 <>

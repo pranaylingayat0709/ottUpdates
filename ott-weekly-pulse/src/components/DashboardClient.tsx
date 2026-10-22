@@ -23,6 +23,7 @@ import { SurpriseMeButton } from "@/components/SurpriseMeButton";
 import { TonightWizard } from "@/components/TonightWizard";
 import { Wand2 } from "lucide-react";
 import { useLastFiltersStore } from "@/hooks/useLastFiltersStore";
+import { ThinWeekNotice, THIN_WEEK_THRESHOLD } from "@/components/ThinWeekNotice";
 
 
 interface DashboardClientProps {
@@ -143,6 +144,7 @@ export function DashboardClient({ initialWeeks, initialTitles }: DashboardClient
           )}
 
           <FilterBar
+            weekId={activeWeekId}
             filters={filters}
             onChange={updateFilters}
             mood={mood}
@@ -161,7 +163,7 @@ export function DashboardClient({ initialWeeks, initialTitles }: DashboardClient
 
           {!isLoading && hasActiveFilters && (
             <div>
-              <p className="mb-4 text-sm text-muted-foreground">
+              <p className="mb-4 text-sm text-muted-foreground" aria-live="polite">
                 <AnimatedCounter value={titles.length} /> result{titles.length !== 1 ? "s" : ""}
               </p>
               <CatalogSection
@@ -178,6 +180,12 @@ export function DashboardClient({ initialWeeks, initialTitles }: DashboardClient
               />
               {titles.length === 0 && <EmptyState message={t("noResults")} />}
             </div>
+          )}
+
+          {!isLoading && !hasActiveFilters && isCurrentWeek && rawTitles.length < THIN_WEEK_THRESHOLD && (
+            <ErrorBoundary fallbackLabel="">
+              <ThinWeekNotice weeks={weeks} activeWeekId={activeWeekId} currentTitles={rawTitles} />
+            </ErrorBoundary>
           )}
 
           {!isLoading && !hasActiveFilters && (

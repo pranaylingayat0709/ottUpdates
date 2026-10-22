@@ -2,7 +2,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type ViewMode = "grid" | "list" | "bento";
+export type ViewMode = "rails" | "grid" | "list" | "bento";
 export type SortMode = "newest" | "rating" | "popular" | "alpha";
 
 interface ViewPreferencesState {
@@ -17,18 +17,24 @@ interface ViewPreferencesState {
 export const useViewPreferences = create<ViewPreferencesState>()(
   persist(
     (set) => ({
-      viewMode: "grid",
+      viewMode: "rails",
       sortMode: "newest",
       myPlatformsOnly: false,
       setViewMode: (viewMode) => set({ viewMode }),
       setSortMode: (sortMode) => set({ sortMode }),
       setMyPlatformsOnly: (myPlatformsOnly) => set({ myPlatformsOnly })
     }),
-    { name: "owp-view-preferences" }
+    {
+      name: "owp-view-preferences",
+      // v2 introduced the "rails" (Discover) view as the default; existing
+      // users keep their sort / My Platforms choices but land on rails once.
+      version: 2,
+      migrate: (persisted) => ({ ...(persisted as object), viewMode: "rails" }) as never
+    }
   )
 );
 
-export function sortTitles<T extends { releaseDate: string; imdbRating?: number | null; internalCriticRating?: number | null; communityScore?: number; communityVotes?: number; title: string }>(
+export function sortTitles<T extends { releaseDate: string; imdbRating?: number | null; internalCriticRating?: number | null; communityScore?: number; communityVotes?: number; popularity?: number | null; title: string }>(
   titles: T[],
   mode: SortMode
 ): T[] {
@@ -37,7 +43,7 @@ export function sortTitles<T extends { releaseDate: string; imdbRating?: number 
     case "rating":
       return copy.sort((a, b) => (b.imdbRating ?? b.internalCriticRating ?? 0) - (a.imdbRating ?? a.internalCriticRating ?? 0));
     case "popular":
-      return copy.sort((a, b) => (b.communityVotes ?? 0) - (a.communityVotes ?? 0) || (b.communityScore ?? 0) - (a.communityScore ?? 0));
+      return copy.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0) || (b.communityVotes ?? 0) - (a.communityVotes ?? 0) || (b.communityScore ?? 0) - (a.communityScore ?? 0));
     case "alpha":
       return copy.sort((a, b) => a.title.localeCompare(b.title));
     case "newest":

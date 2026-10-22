@@ -65,6 +65,18 @@
 
   * { @apply border-border; }
 
+  /* Keyboard focus indicator — only for keyboard navigation (not mouse
+     clicks), in the theme's ring color, so every link/button/card is
+     reachable and visibly focused. Inputs keep their own ring styles. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+  input:focus-visible,
+  textarea:focus-visible {
+    outline: none;
+  }
+
   html {
     transition: background-color 0.35s ease;
     scroll-behavior: smooth;
@@ -147,3 +159,6 @@
     background-image: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.08), transparent);
   }
 }
+
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

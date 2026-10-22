@@ -70,6 +70,13 @@ export interface Title {
 
   isMustWatch: boolean;
   heroRank?: number | null;
+
+  /** Content rating for India (e.g. "U/A 13+") when Watchmode supplies one. */
+  contentRating?: string | null;
+  /** Known release time as an ISO string, when Watchmode supplies one. */
+  releaseTime?: string | null;
+  /** Watchmode 0-100 popularity score, when supplied. */
+  popularity?: number | null;
 }
 
 export interface SubRatings {

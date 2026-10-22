@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Bookmark, Clapperboard, Scale, Search, TrendingUp, Tv, User } from "lucide-react";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { useMyPlatformsStore } from "@/hooks/useMyPlatformsStore";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { WatchlistDrawer } from "@/components/WatchlistDrawer";
 import { MyPlatformsPicker } from "@/components/MyPlatformsPicker";
 import { TasteOnboardingModal } from "@/components/TasteOnboardingModal";
@@ -37,6 +37,30 @@ export function SiteHeader() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Publish the header's real height so sticky bars below can sit flush.
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const set = () => document.documentElement.style.setProperty("--header-h", `${el.offsetHeight}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Let the command palette (and anything else) open these panels.
+  useEffect(() => {
+    const w = () => setDrawerOpen(true);
+    const p = () => setPlatformsOpen(true);
+    window.addEventListener("owp:open-watchlist", w);
+    window.addEventListener("owp:open-platforms", p);
+    return () => {
+      window.removeEventListener("owp:open-watchlist", w);
+      window.removeEventListener("owp:open-platforms", p);
+    };
+  }, []);
+
   const { data: weeks = [] } = useWeeks();
   const currentWeek = weeks.find((w) => w.isCurrent);
   const { data: currentData } = useTitles(currentWeek?.id, DEFAULT_TITLE_FILTERS);
@@ -62,6 +86,7 @@ export function SiteHeader() {
 
   return (
     <header
+      ref={headerRef}
       className="sticky top-0 z-40 border-b backdrop-blur-xl transition-colors duration-300"
       style={{ borderColor: "hsl(var(--foreground) / 0.06)", backgroundColor: "hsl(var(--background) / 0.8)" }}
     >
@@ -81,6 +106,14 @@ export function SiteHeader() {
         </Link>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => window.dispatchEvent(new Event("owp:open-palette"))}
+            className="chip hidden md:inline-flex"
+            aria-label="Open command palette"
+          >
+            <Search className="h-3.5 w-3.5" /> Search
+            <kbd className="ml-1 rounded border px-1 text-[10px] text-muted-foreground" style={{ borderColor: "hsl(var(--foreground) / 0.2)" }}>Ctrl K</kbd>
+          </button>
           <HouseholdSwitcher />
           <Link href="/top-10" className="chip hidden sm:inline-flex">
             <TrendingUp className="h-3.5 w-3.5" /> Top 10

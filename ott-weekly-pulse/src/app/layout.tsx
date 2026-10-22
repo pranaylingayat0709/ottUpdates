@@ -13,6 +13,7 @@ import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { BackToTop } from "@/components/BackToTop";
+import { CommandPalette } from "@/components/CommandPalette";
 import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
 import { CollectionImportHandler } from "@/components/CollectionImportHandler";
 import { Suspense } from "react";
@@ -51,7 +52,7 @@ const THEME_INIT_SCRIPT = `
 (function() {
   try {
     var stored = localStorage.getItem('owp-theme');
-    var isDark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = stored === 'dark' ? true : stored === 'light' ? false : window.matchMedia('(prefers-color-scheme: dark)').matches;
     document.documentElement.classList.toggle('dark', isDark);
   } catch (e) {
     document.documentElement.classList.add('dark');
@@ -74,8 +75,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AccentProvider>
           <LanguageProvider>
             <Providers>
+              <a
+                href="#main-content"
+                className="sr-only z-[100] rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-3"
+              >
+                Skip to content
+              </a>
               <SiteHeader />
-              <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 lg:px-8">{children}</main>
+              <main id="main-content" tabIndex={-1} className="mx-auto max-w-7xl px-4 pb-24 pt-6 outline-none sm:px-6 lg:px-8">{children}</main>
               <footer className="border-t py-8 text-center text-xs text-muted-foreground" style={{ borderColor: "hsl(var(--foreground) / 0.06)" }}>
                 <div className="mx-auto mb-6 max-w-sm px-4">
                   <NewsletterSignup />
@@ -87,6 +94,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <MobileBottomNav />
               <BackToTop />
               <KeyboardShortcuts />
+              <CommandPalette />
               <Suspense fallback={null}>
                 <CollectionImportHandler />
               </Suspense>

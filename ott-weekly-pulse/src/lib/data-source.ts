@@ -364,18 +364,24 @@ async function assembleTitlesForWeek(weekId?: string): Promise<Title[]> {
   // UI can show a genuine "Updated on <date>" instead of today's date —
   // with the fetch-once-and-freeze cache above, a week's data may well be
   // several days old by the time someone's looking at it.
-  await kvSet(`${GENERATED_AT_KV_PREFIX}${resolvedWeekId}`, new Date().toISOString(), STORED_SNAPSHOT_TTL_SECONDS);
+  const generatedAtIso = new Date().toISOString();
+  GENERATED_AT_MEM.set(resolvedWeekId, generatedAtIso);
+  await kvSet(`${GENERATED_AT_KV_PREFIX}${resolvedWeekId}`, generatedAtIso, STORED_SNAPSHOT_TTL_SECONDS);
   return balanced;
 }
 
 const GENERATED_AT_KV_PREFIX = "owp:generatedAt:";
+// Per-instance fallback for when KV isn't attached: the "Updated … ago"
+// badge can still show a real timestamp for whichever warm instance
+// assembled this week's catalog, instead of silently showing nothing.
+const GENERATED_AT_MEM = new Map<string, string>();
 
 // When this week's catalog was actually fetched from Watchmode/TMDB —
 // null if it's never been live-fetched (demo mode, KV not configured, or
 // a genuinely curated-only week). Read by /api/titles to show a real
 // freshness timestamp rather than the current date.
 export async function getGeneratedAt(weekId: string): Promise<string | null> {
-  return kvGet<string>(`${GENERATED_AT_KV_PREFIX}${weekId}`);
+  return (await kvGet<string>(`${GENERATED_AT_KV_PREFIX}${weekId}`)) ?? GENERATED_AT_MEM.get(weekId) ?? null;
 }
 
 /**

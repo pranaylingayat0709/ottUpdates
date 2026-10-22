@@ -9,7 +9,7 @@
 // Free tier: 2,500 requests/month, up to 3 regions, no credit card.
 // Get a key at https://api.watchmode.com/requestApiKey
 import "server-only";
-import type { Genre, Platform, Title, OriginalLanguage } from "@/lib/types";
+import { PLATFORM_LABELS, type Genre, type Platform, type Title, type OriginalLanguage } from "@/lib/types";
 
 const WATCHMODE_BASE_URL = "https://api.watchmode.com/v1";
 // Watchmode's free tier caps at 2,500 requests/month. Each full refresh
@@ -94,6 +94,13 @@ interface WmDetails {
   original_language?: string;
   season_count?: number;
   episode_count?: number;
+  // Newer fields (Watchmode Oct-2026 update). Shapes are read defensively —
+  // anything missing or unexpected simply yields null and nothing is shown.
+  us_rating?: string;
+  content_ratings?: unknown;
+  release_time?: string;
+  popularity?: number;
+  popularity_score?: number;
 }
 interface WmSource {
   source_id: number;
@@ -222,6 +229,25 @@ async function getDetails(id: number): Promise<WmDetails | null> {
   return wmFetch<WmDetails>(`/title/${id}/details/`, {});
 }
 
+// content_ratings may arrive as [{country:"IN", rating:"U/A 13+"}] or as
+// {IN: "U/A 13+"}. Prefer India; fall back to the older us_rating field.
+function pickContentRating(d: WmDetails): string | null {
+  const cr = d.content_ratings;
+  try {
+    if (Array.isArray(cr)) {
+      const hit = cr.find((r) => r && typeof r === "object" && String((r as Record<string, unknown>).country ?? (r as Record<string, unknown>).region ?? "").toUpperCase() === "IN") as Record<string, unknown> | undefined;
+      const val = hit?.rating ?? hit?.certification;
+      if (typeof val === "string" && val.trim()) return val.trim();
+    } else if (cr && typeof cr === "object") {
+      const val = (cr as Record<string, unknown>).IN ?? (cr as Record<string, unknown>).in;
+      if (typeof val === "string" && val.trim()) return val.trim();
+    }
+  } catch {
+    /* ignore malformed shape */
+  }
+  return typeof d.us_rating === "string" && d.us_rating.trim() ? d.us_rating.trim() : null;
+}
+
 function pickGenres(names: string[] | undefined): Genre[] {
   const out = new Set<Genre>();
   for (const name of names ?? []) {
@@ -273,8 +299,43 @@ async function toTitle(item: WmListItem, weekStart: Date, weekEnd: Date, weekId:
     communityVotes: 0,
     editorialBadges: [],
     isMustWatch: false,
-    heroRank: null
+    heroRank: null,
+    contentRating: pickContentRating(details),
+    releaseTime: typeof details.release_time === "string" && !Number.isNaN(Date.parse(details.release_time)) ? new Date(details.release_time).toISOString() : null,
+    popularity: typeof (details.popularity ?? details.popularity_score) === "number" ? (details.popularity ?? details.popularity_score)! : null
   };
+}
+
+export interface LeavingItem {
+  title: string;
+  platform: string;
+  leavesOn: string; // YYYY-MM-DD
+}
+
+/**
+ * Titles scheduled to leave streaming services in India. One request (one
+ * credit), cached for a day by the route handler. Response shape is parsed
+ * defensively; any failure returns an empty list so the UI just hides the strip.
+ */
+export async function fetchLeavingSoon(): Promise<LeavingItem[]> {
+  if (!isWatchmodeEnabled()) return [];
+  const data = await wmFetch<unknown>("/title-leaving-dates/", { regions: "IN", limit: "10" });
+  const rows: unknown[] = Array.isArray(data)
+    ? data
+    : data && typeof data === "object"
+      ? ((data as Record<string, unknown>).titles ?? (data as Record<string, unknown>).results ?? (data as Record<string, unknown>).title_leaving_dates ?? []) as unknown[]
+      : [];
+  const out: LeavingItem[] = [];
+  for (const r of rows) {
+    if (!r || typeof r !== "object") continue;
+    const o = r as Record<string, unknown>;
+    const title = String(o.title ?? o.name ?? "").trim();
+    const date = String(o.leaving_date ?? o.leave_date ?? o.end_date ?? o.date ?? "").slice(0, 10);
+    const rawPlatform = String(o.source_name ?? o.source ?? o.service ?? "");
+    if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    out.push({ title, platform: PROVIDER_MAP[rawPlatform] ? PLATFORM_LABELS[PROVIDER_MAP[rawPlatform]] : rawPlatform, leavesOn: date });
+  }
+  return out.sort((a, b) => a.leavesOn.localeCompare(b.leavesOn)).slice(0, 10);
 }
 
 /**

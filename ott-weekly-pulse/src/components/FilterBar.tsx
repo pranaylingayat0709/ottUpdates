@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { Bookmark, Plus, SlidersHorizontal, X } from "lucide-react";
+import { useSavedViewsStore } from "@/hooks/useSavedViewsStore";
+import { SearchBox } from "@/components/SearchBox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { TitleFilters } from "@/lib/types";
 import { GENRE_LABELS, PLATFORM_LABELS } from "@/lib/types";
@@ -33,6 +35,7 @@ const RATING_OPTIONS = [
 ];
 
 export function FilterBar({
+  weekId,
   filters,
   onChange,
   mood,
@@ -40,6 +43,7 @@ export function FilterBar({
   runtime,
   onRuntimeChange
 }: {
+  weekId?: string;
   filters: TitleFilters;
   onChange: (next: Partial<TitleFilters>) => void;
   mood?: MoodKey | "ALL";
@@ -74,24 +78,88 @@ export function FilterBar({
     runtime && runtime !== "ALL" && runtime
   ].filter(Boolean).length;
 
+  const savedViews = useSavedViewsStore((s) => s.views);
+  const saveView = useSavedViewsStore((s) => s.save);
+  const removeView = useSavedViewsStore((s) => s.remove);
+  const [naming, setNaming] = useState(false);
+  const [viewName, setViewName] = useState("");
+
+  const currentFilters: Partial<TitleFilters> = {
+    type: filters.type, language: filters.language, platform: filters.platform,
+    genre: filters.genre, minRating: filters.minRating
+  };
+
+  function applyView(f: Partial<TitleFilters>) {
+    onChange({ type: "ALL", language: "ALL", platform: "ALL", genre: "ALL", minRating: undefined, ...f });
+  }
+
+  const QUICK: { label: string; active: boolean; apply: Partial<TitleFilters> }[] = [
+    { label: "All", active: activeCount === 0, apply: {} },
+    { label: "Movies", active: filters.type === "MOVIE", apply: { type: "MOVIE" } },
+    { label: "Series", active: filters.type === "SERIES", apply: { type: "SERIES" } },
+    { label: "Hindi", active: filters.language === "HINDI", apply: { language: "HINDI" } },
+    { label: "Marathi", active: filters.language === "MARATHI", apply: { language: "MARATHI" } },
+    { label: "English", active: filters.language === "ENGLISH", apply: { language: "ENGLISH" } },
+    { label: "7+ rated", active: (filters.minRating ?? 0) >= 7, apply: { minRating: 7 } }
+  ];
+
   return (
-    <div className="glass-panel mb-8 flex flex-col gap-3 p-3 sm:p-4">
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          id="site-search-input"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder={t("filter.searchPlaceholder")}
-          className="w-full rounded-full border border-[hsl(var(--foreground)/0.1)] bg-[hsl(var(--foreground)/0.04)] py-2.5 pl-9 pr-9 text-sm placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/50"
-        />
-        {searchInput && (
+    <div
+      className="glass-panel sticky z-30 mb-8 flex flex-col gap-3 p-3 sm:p-4"
+      style={{ top: "calc(var(--header-h, 64px) + 6px)" }}
+    >
+      <SearchBox value={searchInput} onChange={setSearchInput} weekId={weekId} placeholder={t("filter.searchPlaceholder")} />
+
+      <div className="no-scrollbar -mx-1 flex items-center gap-2 overflow-x-auto px-1" role="group" aria-label="Quick filters">
+        {QUICK.map((q) => (
           <button
-            onClick={() => setSearchInput("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            key={q.label}
+            aria-pressed={q.active}
+            onClick={() => (q.label === "All" ? applyView({}) : onChange(q.apply))}
+            className={cn("chip shrink-0", q.active && "chip-active")}
           >
-            <X className="h-4 w-4" />
+            {q.label}
           </button>
+        ))}
+        {savedViews.length > 0 && <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-[hsl(var(--foreground)/0.15)]" />}
+        {savedViews.map((v) => (
+          <span key={v.id} className="chip shrink-0 !gap-1 !pr-1.5">
+            <button onClick={() => applyView(v.filters)} className="flex items-center gap-1">
+              <Bookmark className="h-3 w-3" /> {v.name}
+            </button>
+            <button onClick={() => removeView(v.id)} aria-label={`Delete saved view ${v.name}`} className="rounded-full p-0.5 hover:bg-[hsl(var(--foreground)/0.12)]">
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+        {activeCount > 0 && !naming && (
+          <button onClick={() => setNaming(true)} className="chip shrink-0 border-dashed">
+            <Plus className="h-3 w-3" /> Save view
+          </button>
+        )}
+        {naming && (
+          <form
+            className="flex shrink-0 items-center gap-1"
+            onSubmit={(e) => {
+              e.preventDefault();
+              saveView(viewName, currentFilters);
+              setViewName("");
+              setNaming(false);
+            }}
+          >
+            <input
+              autoFocus
+              value={viewName}
+              onChange={(e) => setViewName(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && setNaming(false)}
+              maxLength={24}
+              placeholder="Name this view"
+              aria-label="Saved view name"
+              className="h-8 w-36 rounded-full border bg-transparent px-3 text-xs"
+              style={{ borderColor: "hsl(var(--foreground) / 0.2)" }}
+            />
+            <button type="submit" className="chip chip-active">Save</button>
+          </form>
         )}
       </div>
 
