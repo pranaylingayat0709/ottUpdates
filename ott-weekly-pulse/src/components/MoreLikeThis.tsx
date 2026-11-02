@@ -1,8 +1,7 @@
 "use client";
 import { Layers } from "lucide-react";
 import type { Title } from "@/lib/types";
-import { TitleCard } from "@/components/TitleCard";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { Rail } from "@/components/Rail";
 import { useTitles, DEFAULT_TITLE_FILTERS } from "@/hooks/useTitles";
 
 // Per-title "More Like This" — genre + cast overlap against the current
@@ -29,23 +28,10 @@ export function MoreLikeThis({ current }: { current: Title }) {
     })
     .filter((x) => x.score > 0)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 5)
+    .slice(0, 10)
     .map((x) => x.title);
 
   if (similar.length === 0) return null;
 
-  return (
-    <div>
-      <h4 className="mb-2 flex items-center gap-2 text-sm font-bold">
-        <Layers className="h-4 w-4 text-accent" /> More Like This
-      </h4>
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-        {similar.map((t) => (
-          <ErrorBoundary key={t.id} fallbackLabel="">
-            <TitleCard title={t} />
-          </ErrorBoundary>
-        ))}
-      </div>
-    </div>
-  );
+  return <Rail title="More like this" icon={<Layers className="h-4 w-4 text-accent" />} titles={similar} />;
 }

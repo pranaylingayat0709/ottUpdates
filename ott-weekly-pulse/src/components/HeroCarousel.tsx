@@ -2,13 +2,13 @@
 import useEmblaCarousel from "embla-carousel-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
-import { ChevronLeft, ChevronRight, Film, PlayCircle, Star } from "lucide-react";
+import { ChevronLeft, ChevronRight, Film, Pause, Play, PlayCircle, Star } from "lucide-react";
 import type { Title } from "@/lib/types";
 import { PLATFORM_LABELS } from "@/lib/types";
 import { EditorialBadgePill } from "@/components/EditorialBadgePill";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { TitleModal } from "@/components/TitleModal";
+import { TitleModal } from "@/components/LazyTitleModal";
 import { PosterImage } from "@/components/PosterImage";
 import { useI18n } from "@/components/LanguageProvider";
 import { useTrailerPlayer } from "@/hooks/useTrailerPlayer";
@@ -39,11 +39,43 @@ export function HeroCarousel({ titles }: { titles: Title[] }) {
     onSelect();
   }, [emblaApi]);
 
+  // Motion preferences: reduced-motion users never get auto-advance or the
+  // auto-playing trailer; Save-Data / slow connections skip the trailer too.
+  const [reducedMotion, setReducedMotion] = useState(false);
+  const [canPreview, setCanPreview] = useState(false);
+  const [userPaused, setUserPaused] = useState(false);
+  const [hovering, setHovering] = useState(false);
+  const [trailerLive, setTrailerLive] = useState(false);
   useEffect(() => {
-    if (!emblaApi) return;
-    const id = setInterval(() => emblaApi.scrollNext(), 6500);
+    const rm = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReducedMotion(rm.matches);
+    sync();
+    rm.addEventListener("change", sync);
+    const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+    const slow = !!conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType ?? "");
+    setCanPreview(window.matchMedia("(min-width: 1024px) and (hover: hover)").matches && !slow);
+    return () => rm.removeEventListener("change", sync);
+  }, []);
+
+  // Auto-advance: off for reduced motion, when the user paused, while the
+  // pointer is over the hero, while a trailer plays, and in hidden tabs.
+  useEffect(() => {
+    if (!emblaApi || reducedMotion || userPaused || hovering || trailerLive) return;
+    const id = setInterval(() => {
+      if (!document.hidden) emblaApi.scrollNext();
+    }, 6500);
     return () => clearInterval(id);
-  }, [emblaApi]);
+  }, [emblaApi, reducedMotion, userPaused, hovering, trailerLive]);
+
+  // Muted trailer preview on the active slide, after it has sat still for 2.5s.
+  useEffect(() => {
+    setTrailerLive(false);
+    if (!canPreview || reducedMotion || userPaused || hovering) return;
+    const action = titles[selected] ? getTrailerAction(titles[selected].title, titles[selected].trailerUrl) : null;
+    if (!action || action.kind !== "play") return;
+    const id = setTimeout(() => setTrailerLive(true), 2500);
+    return () => clearTimeout(id);
+  }, [selected, canPreview, reducedMotion, userPaused, hovering, titles]);
 
   if (titles.length === 0) return null;
   const activeTitle = titles[selected];
@@ -55,12 +87,21 @@ export function HeroCarousel({ titles }: { titles: Title[] }) {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+      onFocusCapture={() => setHovering(true)}
+      onBlurCapture={() => setHovering(false)}
+      aria-roledescription="carousel"
+      aria-label="Top picks this week"
     >
       <div className="mb-4 flex items-center justify-between px-4 sm:px-6 lg:px-8">
-        <h2 className="font-display text-xl font-bold tracking-tight sm:text-3xl">
+        <h2 className="font-display text-fluid-h2 font-bold tracking-tight">
           {t("hero.headingPrefix")} <span className="text-gradient">{t("hero.headingSuffix")}</span>
         </h2>
         <div className="hidden gap-2 sm:flex">
+          <Button variant="outline" size="icon" onClick={() => setUserPaused((v) => !v)} aria-label={userPaused ? "Play slideshow" : "Pause slideshow"}>
+            {userPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+          </Button>
           <Button variant="outline" size="icon" onClick={scrollPrev} aria-label="Previous">
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -89,6 +130,20 @@ export function HeroCarousel({ titles }: { titles: Title[] }) {
                     />
                   </div>
                 </motion.div>
+                {selected === i && trailerLive && (() => {
+                  const action = getTrailerAction(title.title, title.trailerUrl);
+                  return action.kind === "play" ? (
+                    <iframe
+                      className="absolute inset-0 h-full w-full animate-in fade-in duration-700"
+                      style={{ pointerEvents: "none" }}
+                      src={`https://www.youtube-nocookie.com/embed/${action.videoId}?autoplay=1&mute=1&controls=0&modestbranding=1&playsinline=1&loop=1&playlist=${action.videoId}&iv_load_policy=3&rel=0`}
+                      title={`${title.title} trailer preview (muted)`}
+                      allow="autoplay; encrypted-media"
+                      tabIndex={-1}
+                      aria-hidden
+                    />
+                  ) : null;
+                })()}
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/10 to-transparent" />
 

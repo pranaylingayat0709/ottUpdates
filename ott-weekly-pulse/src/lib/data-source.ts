@@ -262,7 +262,7 @@ async function assembleTitlesForWeek(weekId?: string): Promise<Title[]> {
   const { weekStartDate, weekEndDate } = getWeekRangeById(weekId);
   const weeks = listWeeks();
   const resolvedWeekId = weekId ?? weeks.find((w) => w.isCurrent)?.id ?? weekStartDate.toISOString().slice(0, 10);
-  const kvKey = `owp:titles:${resolvedWeekId}`;
+  const kvKey = `owp:titles:v2:${resolvedWeekId}`;
 
   const cached = LIVE_CACHE.get(resolvedWeekId);
   if (cached && cached.expiresAt > Date.now()) return cached.data;

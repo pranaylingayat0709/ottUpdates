@@ -13,7 +13,7 @@ export function DialogContent({ className, children, ...props }: React.Component
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[94vw] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-[hsl(var(--foreground)/0.1)] bg-card p-0 shadow-2xl focus:outline-none scrollbar-thin",
+          "fixed bottom-0 left-1/2 z-50 max-h-[92dvh] w-full max-w-3xl -translate-x-1/2 overflow-y-auto overscroll-contain rounded-t-3xl border border-[hsl(var(--foreground)/0.1)] bg-card p-0 shadow-2xl duration-300 focus:outline-none scrollbar-thin data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom-10 data-[state=open]:fade-in sm:bottom-auto sm:top-1/2 sm:max-h-[90dvh] sm:w-[94vw] sm:-translate-y-1/2 sm:rounded-2xl sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=open]:zoom-in-95",
           className
         )}
         {...props}

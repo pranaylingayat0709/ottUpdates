@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { TitleModal } from "@/components/TitleModal";
+import { TitleModal } from "@/components/LazyTitleModal";
 import { MOOD_OPTIONS, matchesMood, matchesRuntime, type MoodKey, type RuntimeKey } from "@/lib/moods";
 import { useMyPlatformsStore } from "@/hooks/useMyPlatformsStore";
 import type { Title } from "@/lib/types";

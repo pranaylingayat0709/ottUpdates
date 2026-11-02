@@ -7,6 +7,7 @@ import { WeekStatsBar } from "@/components/WeekStatsBar";
 import { HeroCarousel } from "@/components/HeroCarousel";
 import { HeroSkeleton } from "@/components/HeroSkeleton";
 import { FilterBar } from "@/components/FilterBar";
+import { WatchTonight } from "@/components/WatchTonight";
 import { ReleaseCalendar, CatalogSection } from "@/components/ReleaseCalendar";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -194,6 +195,11 @@ export function DashboardClient({ initialWeeks, initialTitles }: DashboardClient
               <ErrorBoundary fallbackLabel="">
                 <RecommendedForYou titles={titles} />
               </ErrorBoundary>
+              {titles.length >= 3 && (
+                <ErrorBoundary fallbackLabel="">
+                  <WatchTonight titles={titles} />
+                </ErrorBoundary>
+              )}
               <ErrorBoundary fallbackLabel="This week's catalog couldn't be displayed right now — try refreshing.">
                 <ReleaseCalendar titles={titles} />
               </ErrorBoundary>

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Shuffle } from "lucide-react";
 import type { Title } from "@/lib/types";
-import { TitleModal } from "@/components/TitleModal";
+import { TitleModal } from "@/components/LazyTitleModal";
 import { useTasteStore } from "@/hooks/useTasteStore";
 
 // Picks one random title from this week's catalog and opens its detail

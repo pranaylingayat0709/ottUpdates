@@ -25,7 +25,7 @@ export function TitleModal({
             <div className="skeleton h-3 w-5/6 rounded" />
           </div>
         )}
-        {title && <TitleDetailContent title={title} />}
+        {title && <TitleDetailContent title={title} stickyWatchBar />}
       </DialogContent>
     </Dialog>
   );

@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { isValidSessionToken, getSessionCookieName } from "@/lib/admin-auth";
 import { MOCK_TITLES } from "@/data/mock-data";
-import { listWeeks, listTitlesForWeek } from "@/lib/data-source";
-import { isWatchmodeEnabled, getLastWatchmodeError } from "@/lib/watchmode";
+import { listWeeks, listTitlesForWeek, getGeneratedAt } from "@/lib/data-source";
+import { isWatchmodeEnabled, getLastWatchmodeError, getWatchmodeUsage } from "@/lib/watchmode";
+import { isKvEnabled } from "@/lib/kv-cache";
 import { isLiveDataEnabled } from "@/lib/tmdb";
 
 // Lets the admin panel warn when the curated fallback/supplement pool has
@@ -34,10 +35,18 @@ export async function GET() {
   let liveTitleCount = 0;
   let curatedTitleCount = 0;
   let totalTitleCount = 0;
+  const byLanguage: Record<string, number> = {};
+  const byPlatform: Record<string, number> = {};
+  let withCast = 0;
+  let withRealLinks = 0;
   try {
     const titles = await listTitlesForWeek(current?.id);
     totalTitleCount = titles.length;
     for (const t of titles) {
+      byLanguage[t.originalLanguage] = (byLanguage[t.originalLanguage] ?? 0) + 1;
+      for (const p of t.platforms) byPlatform[p] = (byPlatform[p] ?? 0) + 1;
+      if (t.cast.length > 0) withCast++;
+      if (Object.values(t.platformDeepLinks).some((u) => !u.includes("api.watchmode.com"))) withRealLinks++;
       if (t.id.startsWith("wm-") || t.id.startsWith("tmdb-")) liveTitleCount++;
       else curatedTitleCount++;
     }
@@ -55,7 +64,20 @@ export async function GET() {
   // field; both used to look identical from here.
   const watchmodeError = watchmodeKeyPresent ? getLastWatchmodeError() : null;
 
+  const usage = watchmodeKeyPresent ? await getWatchmodeUsage() : null;
+  const snapshotFetchedAt = current ? await getGeneratedAt(current.id) : null;
+
   return NextResponse.json({
+    diagnostics: {
+      byLanguage,
+      byPlatform,
+      withCast,
+      withRealLinks,
+      kvAttached: isKvEnabled(),
+      snapshotFetchedAt,
+      usage,
+      monthlyQuota: 2500
+    },
     totalSeeds: MOCK_TITLES.length,
     activeThisWeek,
     currentWeekLabel: current?.label ?? "unknown",

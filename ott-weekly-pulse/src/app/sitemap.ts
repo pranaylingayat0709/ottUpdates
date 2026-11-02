@@ -32,6 +32,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = [
     { url: baseUrl, changeFrequency: "daily", priority: 1 },
     { url: `${baseUrl}/compare`, changeFrequency: "weekly", priority: 0.6 },
+    ...weeks.map((w) => ({
+      url: `${baseUrl}/week/${w.id}`,
+      changeFrequency: "daily" as const,
+      priority: w.isCurrent ? 0.9 : 0.6
+    })),
     ...Object.keys(GENRE_LABELS).map((genre) => ({
       url: `${baseUrl}/genre/${genre.toLowerCase().replace(/_/g, "-")}`,
       changeFrequency: "weekly" as const,

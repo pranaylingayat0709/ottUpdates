@@ -1,12 +1,11 @@
 "use client";
 import { useMemo } from "react";
-import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { useTasteStore } from "@/hooks/useTasteStore";
 import { useI18n } from "@/components/LanguageProvider";
-import { TitleCard } from "@/components/TitleCard";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { Rail } from "@/components/Rail";
+import { useDiaryStore } from "@/hooks/useDiaryStore";
 import { GENRE_LABELS, type Title } from "@/lib/types";
 
 interface ScoredTitle {
@@ -26,6 +25,7 @@ interface ScoredTitle {
 export function RecommendedForYou({ titles }: { titles: Title[] }) {
   const watchlistIds = useWatchlistStore((s) => s.titleIds);
   const tasteGenres = useTasteStore((s) => s.favoriteGenres);
+  const diary = useDiaryStore((s) => s.entries);
   const { t } = useI18n();
 
   const recommendations = useMemo<ScoredTitle[]>(() => {
@@ -44,6 +44,21 @@ export function RecommendedForYou({ titles }: { titles: Title[] }) {
       for (const c of w.cast) {
         castCounts.set(c, (castCounts.get(c) ?? 0) + 1);
         if (!castSource.has(c)) castSource.set(c, w.title);
+      }
+    }
+
+    // Titles you rated 4★ or higher in your diary count double (and work even
+    // when they aren't in the currently loaded week, because the diary keeps
+    // a snapshot of each title's genres and cast).
+    for (const d of diary) {
+      if (d.rating < 4) continue;
+      for (const g of d.genres) {
+        genreCounts.set(g, (genreCounts.get(g) ?? 0) + 2);
+        if (!genreSource.has(g)) genreSource.set(g, d.title);
+      }
+      for (const c of d.cast) {
+        castCounts.set(c, (castCounts.get(c) ?? 0) + 2);
+        if (!castSource.has(c)) castSource.set(c, d.title);
       }
     }
 
@@ -91,26 +106,18 @@ export function RecommendedForYou({ titles }: { titles: Title[] }) {
       scored.push({ title, score, reason });
     }
 
-    return scored.sort((a, b) => b.score - a.score).slice(0, 5);
-  }, [watchlistIds, titles, tasteGenres]);
+    return scored.sort((a, b) => b.score - a.score).slice(0, 12);
+  }, [watchlistIds, titles, tasteGenres, diary]);
 
   if (recommendations.length === 0) return null;
 
+  const reasons = new Map(recommendations.map((r) => [r.title.id, r.reason]));
   return (
-    <motion.section className="mb-12" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-      <h2 className="mb-4 flex items-center gap-2 font-display text-xl font-bold tracking-tight sm:text-2xl">
-        <Sparkles className="h-5 w-5 text-accent" /> {t("recommendations.forYou")}
-      </h2>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {recommendations.map(({ title, reason }) => (
-          <div key={title.id}>
-            <ErrorBoundary fallbackLabel="Couldn't load this title.">
-              <TitleCard title={title} />
-            </ErrorBoundary>
-            <p className="mt-1.5 line-clamp-1 text-[11px] text-muted-foreground">{reason}</p>
-          </div>
-        ))}
-      </div>
-    </motion.section>
+    <Rail
+      title={t("recommendations.forYou")}
+      icon={<Sparkles className="h-4.5 w-4.5 text-accent" />}
+      titles={recommendations.map((r) => r.title)}
+      caption={(title) => reasons.get(title.id) ?? null}
+    />
   );
 }

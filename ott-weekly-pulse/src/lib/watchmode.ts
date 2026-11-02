@@ -9,6 +9,8 @@
 // Free tier: 2,500 requests/month, up to 3 regions, no credit card.
 // Get a key at https://api.watchmode.com/requestApiKey
 import "server-only";
+import { kvGet, kvSet } from "@/lib/kv-cache";
+import { fetchTmdbCredits } from "@/lib/tmdb";
 import { PLATFORM_LABELS, type Genre, type Platform, type Title, type OriginalLanguage } from "@/lib/types";
 
 const WATCHMODE_BASE_URL = "https://api.watchmode.com/v1";
@@ -33,7 +35,11 @@ const WATCHMODE_BASE_URL = "https://api.watchmode.com/v1";
 // Storage tab — without it, every cold serverless instance re-fetches
 // independently instead of reusing one frozen weekly snapshot.
 const REVALIDATE_SECONDS = Number(process.env.WATCHMODE_REVALIDATE_SECONDS) || 12 * 60 * 60;
-const CANDIDATE_LIMIT = Number(process.env.WATCHMODE_CANDIDATE_LIMIT) || 12;
+// Candidates per language query (see listWeeklyTitles). Defaults give up to
+// 6 Hindi + 4 Marathi + 8 English = 18 candidates, ~37 calls per refresh.
+const CANDIDATE_LIMIT = Number(process.env.WATCHMODE_CANDIDATE_LIMIT) || 8;
+const HINDI_LIMIT = Number(process.env.WATCHMODE_HINDI_LIMIT) || 6;
+const MARATHI_LIMIT = Number(process.env.WATCHMODE_MARATHI_LIMIT) || 4;
 
 // Empty string signals "no real poster" — see the matching comment in
 // tmdb.ts for why this is no longer an external placeholder-service URL.
@@ -96,6 +102,8 @@ interface WmDetails {
   episode_count?: number;
   // Newer fields (Watchmode Oct-2026 update). Shapes are read defensively —
   // anything missing or unexpected simply yields null and nothing is shown.
+  tmdb_id?: number | null;
+  tmdb_type?: string | null;
   us_rating?: string;
   content_ratings?: unknown;
   release_time?: string;
@@ -160,6 +168,52 @@ function fmt(d: Date) {
   return d.toISOString().slice(0, 10).replace(/-/g, ""); // Watchmode wants YYYYMMDD
 }
 
+// ---------- Usage counter + per-item memo ----------
+// Every real Watchmode request is counted (in memory, and in KV by month when
+// KV is attached) so /admin can show quota use instead of guessing.
+let callsThisInstance = 0;
+function monthKey() {
+  return `owp:wm-calls:${new Date().toISOString().slice(0, 7)}`;
+}
+async function countCall() {
+  callsThisInstance++;
+  try {
+    const k = monthKey();
+    const n = (await kvGet<number>(k)) ?? 0;
+    await kvSet(k, n + 1, 40 * 24 * 3600); // best-effort; races only under-count slightly
+  } catch {
+    /* ignore */
+  }
+}
+export async function getWatchmodeUsage() {
+  return {
+    month: new Date().toISOString().slice(0, 7),
+    callsThisInstance,
+    callsThisMonthKv: await kvGet<number>(monthKey())
+  };
+}
+
+// Small two-level cache (instance memory + KV) for data that doesn't change
+// between weekly refreshes: a title's sources/details, the platform-ID map.
+// Adjacent weeks' lookback windows overlap, so without this the same title
+// was re-fetched (2 credits) for every week it appeared in.
+const MEMO = new Map<string, { v: unknown; exp: number }>();
+async function memo<T>(key: string, ttlSeconds: number, fn: () => Promise<T | null>): Promise<T | null> {
+  const hit = MEMO.get(key);
+  if (hit && hit.exp > Date.now()) return hit.v as T;
+  const stored = await kvGet<T>(key);
+  if (stored) {
+    MEMO.set(key, { v: stored, exp: Date.now() + ttlSeconds * 1000 });
+    return stored;
+  }
+  const fresh = await fn();
+  if (fresh) {
+    MEMO.set(key, { v: fresh, exp: Date.now() + ttlSeconds * 1000 });
+    await kvSet(key, fresh, ttlSeconds);
+  }
+  return fresh;
+}
+
 async function wmFetch<T>(path: string, params: Record<string, string>): Promise<T | null> {
   const key = apiKey();
   if (!key) return null;
@@ -167,6 +221,7 @@ async function wmFetch<T>(path: string, params: Record<string, string>): Promise
   url.searchParams.set("apiKey", key);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
 
+  void countCall();
   try {
     const res = await fetch(url.toString(), {
       next: { revalidate: REVALIDATE_SECONDS },
@@ -190,43 +245,99 @@ async function wmFetch<T>(path: string, params: Record<string, string>): Promise
   }
 }
 
-async function listWeeklyTitles(weekStart: Date, weekEnd: Date): Promise<WmListItem[]> {
-  // Sort by release_date_desc (newest first), not relevance/popularity —
-  // this is a WEEKLY RELEASE calendar, and sorting by broad relevance let
-  // an already-popular back-catalog title dominate the top N slots for
-  // multiple weeks running, crowding out genuinely new releases (the
-  // exact "same titles every week" complaint this fixes). Lookback window
-  // tightened from 21 to 10 days for the same reason — a title has to be
-  // fairly recent to plausibly still be "this week's" release, not just
-  // recent-ish.
-  const recentFrom = new Date(weekStart);
-  recentFrom.setDate(recentFrom.getDate() - 10);
-
-  const data = await wmFetch<WmListResponse>("/list-titles/", {
-    types: "movie,tv_series,tv_miniseries",
-    source_types: "sub",
-    regions: "IN",
-    release_date_start: fmt(recentFrom),
-    release_date_end: fmt(weekEnd),
-    sort_by: "release_date_desc",
-    limit: String(CANDIDATE_LIMIT)
+// Watchmode source IDs for the platforms this app tracks, looked up once
+// (1 credit) and cached for 30 days. Passing them as `source_ids` makes the
+// list query return only titles streaming on those platforms, so candidate
+// slots (and their 2-credit detail lookups) aren't wasted on titles that
+// would be dropped for being on none of them. Empty => param is omitted.
+async function trackedSourceIds(): Promise<string> {
+  const ids = await memo<number[]>("owp:wm-source-ids:v1", 30 * 24 * 3600, async () => {
+    const list = await wmFetch<{ id: number; name: string; type: string }[]>("/sources/", { regions: "IN" });
+    if (!Array.isArray(list)) return null;
+    const out = list.filter((s) => s.type === "sub" && PROVIDER_MAP[s.name]).map((s) => s.id);
+    return out.length ? out : null;
   });
-  return data?.titles ?? [];
+  return (ids ?? []).join(",");
 }
 
-async function getSources(id: number): Promise<Platform[]> {
-  const sources = await wmFetch<WmSource[]>(`/title/${id}/sources/`, { regions: "IN" });
-  const platforms = new Set<Platform>();
-  for (const s of sources ?? []) {
-    if (s.region !== "IN" || s.type !== "sub") continue;
-    const mapped = PROVIDER_MAP[s.name];
-    if (mapped) platforms.add(mapped);
+async function listWeeklyTitles(weekStart: Date, weekEnd: Date): Promise<WmListItem[]> {
+  // Sorted newest-first (this is a WEEKLY RELEASE calendar; relevance sort
+  // let old back-catalog titles crowd out genuinely new ones).
+  //
+  // One combined query returned whatever was newest on Indian services
+  // worldwide (Turkish dramas, US docs...) and almost never a Hindi or
+  // Marathi title, because Hindi/Marathi releases are a small slice of the
+  // global feed. So the pool is built from separate per-language queries,
+  // Indian languages first, each with its own quota. Regional releases are
+  // sparser, so they get a wider lookback window than English.
+  const queries: { languages: string; limit: number; lookbackDays: number }[] = [
+    { languages: "hi", limit: HINDI_LIMIT, lookbackDays: 21 },
+    { languages: "mr", limit: MARATHI_LIMIT, lookbackDays: 45 },
+    { languages: "en", limit: CANDIDATE_LIMIT, lookbackDays: 10 }
+  ];
+
+  const sourceIds = await trackedSourceIds();
+  const results = await Promise.all(
+    queries.map(async (q) => {
+      const from = new Date(weekStart);
+      from.setDate(from.getDate() - q.lookbackDays);
+      const data = await wmFetch<WmListResponse>("/list-titles/", {
+        types: "movie,tv_series,tv_miniseries",
+        source_types: "sub",
+        ...(sourceIds ? { source_ids: sourceIds } : {}),
+        regions: "IN",
+        languages: q.languages,
+        release_date_start: fmt(from),
+        release_date_end: fmt(weekEnd),
+        sort_by: "release_date_desc",
+        limit: String(q.limit)
+      });
+      return data?.titles ?? [];
+    })
+  );
+
+  const seen = new Set<number>();
+  const merged: WmListItem[] = [];
+  for (const list of results) {
+    for (const item of list) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      merged.push(item);
+    }
   }
-  return Array.from(platforms);
+  return merged;
+}
+
+interface SourceBundle {
+  platforms: Platform[];
+  links: Record<string, string>;
+}
+
+async function getSources(id: number): Promise<SourceBundle | null> {
+  return memo<SourceBundle>(`owp:wm-sources:v1:${id}`, 7 * 24 * 3600, async () => {
+    const sources = await wmFetch<WmSource[]>(`/title/${id}/sources/`, { regions: "IN" });
+    if (!sources) return null; // failed request: don't cache an empty answer
+    const platforms = new Set<Platform>();
+    const links: Record<string, string> = {};
+    for (const s of sources) {
+      if (s.region !== "IN" || s.type !== "sub") continue;
+      const mapped = PROVIDER_MAP[s.name];
+      if (!mapped) continue;
+      platforms.add(mapped);
+      if (s.web_url && !links[mapped]) links[mapped] = s.web_url;
+    }
+    return { platforms: Array.from(platforms), links };
+  });
 }
 
 async function getDetails(id: number): Promise<WmDetails | null> {
-  return wmFetch<WmDetails>(`/title/${id}/details/`, {});
+  return memo<WmDetails>(`owp:wm-details:v1:${id}`, 7 * 24 * 3600, () => wmFetch<WmDetails>(`/title/${id}/details/`, {}));
+}
+
+async function getCredits(d: WmDetails): Promise<{ cast: string[]; director: string | null } | null> {
+  if (!d.tmdb_id) return null;
+  const type = d.tmdb_type === "tv" ? "tv" : "movie";
+  return memo(`owp:tmdb-credits:v1:${type}:${d.tmdb_id}`, 30 * 24 * 3600, () => fetchTmdbCredits(type, d.tmdb_id as number));
 }
 
 // content_ratings may arrive as [{country:"IN", rating:"U/A 13+"}] or as
@@ -262,8 +373,10 @@ function makeId(tmdbId: number, weekId: string) {
 }
 
 async function toTitle(item: WmListItem, weekStart: Date, weekEnd: Date, weekId: string): Promise<Title | null> {
-  const [platforms, details] = await Promise.all([getSources(item.id), getDetails(item.id)]);
-  if (platforms.length === 0 || !details) return null; // not actually streaming anywhere we track
+  const [bundle, details] = await Promise.all([getSources(item.id), getDetails(item.id)]);
+  if (!bundle || bundle.platforms.length === 0 || !details) return null; // not actually streaming anywhere we track
+  const platforms = bundle.platforms;
+  const credits = await getCredits(details); // null when TMDB isn't configured
 
   const isSeries = item.type !== "movie";
   const language = LANGUAGE_MAP[details.original_language ?? ""] ?? "OTHER";
@@ -281,7 +394,9 @@ async function toTitle(item: WmListItem, weekStart: Date, weekEnd: Date, weekId:
     subtitleLanguages: ["English"],
     isHindiDubbed: false, // Watchmode doesn't expose per-track dub-language data
     platforms,
-    platformDeepLinks: Object.fromEntries(platforms.map((p) => [p, `https://api.watchmode.com/title/${item.id}`])),
+    // Real service URLs from Watchmode's sources response; the Watchmode
+    // title page is only a fallback for a platform that came back without one.
+    platformDeepLinks: Object.fromEntries(platforms.map((p) => [p, bundle.links[p] ?? `https://api.watchmode.com/title/${item.id}`])),
     genres: pickGenres(details.genre_names),
     runtimeMinutes: details.runtime_minutes ?? null,
     totalEpisodes: details.episode_count ?? null,
@@ -290,8 +405,8 @@ async function toTitle(item: WmListItem, weekStart: Date, weekEnd: Date, weekId:
     backdropUrl: details.backdrop ?? null,
     trailerUrl: details.trailer || null,
     synopsis: details.plot_overview || "Synopsis not available yet.",
-    director: null,
-    cast: [],
+    director: credits?.director ?? null,
+    cast: credits?.cast ?? [],
     imdbRating: null,
     rottenTomatoesScore: details.critic_score ?? null,
     internalCriticRating: details.user_rating ? Math.round(details.user_rating * 10) / 10 : null,

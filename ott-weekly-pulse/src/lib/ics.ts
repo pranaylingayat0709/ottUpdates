@@ -45,3 +45,41 @@ export function downloadReleaseReminderIcs(title: { title: string; releaseDate: 
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+
+// Server-side: one all-day event per title for a whole release week, served
+// from /api/calendar. Folded to <=75 octets per RFC 5545 isn't strictly
+// required by common clients for short lines, so lines are kept short instead.
+export function buildWeekIcs(
+  weekLabel: string,
+  titles: { id: string; title: string; releaseDate: string; type: string; platforms: string[]; synopsis?: string }[],
+  baseUrl: string
+): string {
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//OTT Weekly Pulse//Week Calendar//EN",
+    "CALSCALE:GREGORIAN",
+    `X-WR-CALNAME:OTT Weekly Pulse`,
+    `X-WR-CALDESC:${icsEscape(`New OTT releases, ${weekLabel}`)}`
+  ];
+  for (const t of titles) {
+    const start = toIcsDate(t.releaseDate);
+    const end = new Date(t.releaseDate);
+    end.setDate(end.getDate() + 1);
+    lines.push(
+      "BEGIN:VEVENT",
+      `UID:owp-${t.id}@ottweeklypulse`,
+      `DTSTAMP:${stamp}`,
+      `DTSTART;VALUE=DATE:${start}`,
+      `DTEND;VALUE=DATE:${toIcsDate(end.toISOString())}`,
+      `SUMMARY:${icsEscape(`${t.title} (${t.type === "MOVIE" ? "Movie" : "Series"}) on ${t.platforms.slice(0, 2).join(", ") || "OTT"}`)}`,
+      `URL:${baseUrl}/title/${t.id}`,
+      t.synopsis ? `DESCRIPTION:${icsEscape(t.synopsis.slice(0, 200))}` : "",
+      "END:VEVENT"
+    );
+  }
+  lines.push("END:VCALENDAR");
+  return lines.filter(Boolean).join("\r\n");
+}

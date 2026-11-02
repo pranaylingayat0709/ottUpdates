@@ -405,3 +405,26 @@ export async function fetchLiveTitlesForWeek(weekStart: Date, weekEnd: Date, wee
 
   return all;
 }
+
+
+/**
+ * Top-billed cast (up to 8) and director for one title, used to enrich
+ * Watchmode titles (which carry neither). Returns null when no TMDB key is
+ * configured or the request fails, so callers simply show nothing extra.
+ */
+export async function fetchTmdbCredits(type: "movie" | "tv", id: number): Promise<{ cast: string[]; director: string | null } | null> {
+  const key = apiKey();
+  if (!key) return null;
+  try {
+    const url = new URL(`${TMDB_BASE_URL}/${type}/${id}/credits`);
+    url.searchParams.set("api_key", key);
+    const res = await fetch(url.toString(), { next: { revalidate: 30 * 24 * 3600 }, signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { cast?: { name: string; order?: number }[]; crew?: { name: string; job: string }[] };
+    const cast = (data.cast ?? []).slice(0, 8).map((c) => c.name).filter(Boolean);
+    const director = data.crew?.find((c) => c.job === "Director")?.name ?? null;
+    return { cast, director };
+  } catch {
+    return null;
+  }
+}

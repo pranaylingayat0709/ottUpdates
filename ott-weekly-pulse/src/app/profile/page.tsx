@@ -8,6 +8,7 @@ import { useCollectionsStore } from "@/hooks/useCollectionsStore";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { useSubscriptionCostStore } from "@/hooks/useSubscriptionCostStore";
 import { useHouseholdStore } from "@/hooks/useHouseholdStore";
+import { SyncPanel } from "@/components/SyncPanel";
 import { useAccent, ACCENT_OPTIONS } from "@/components/AccentProvider";
 import { GENRE_LABELS, PLATFORM_LABELS, type Genre, type Platform } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,7 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-2xl">
+      <Link href="/diary" className="chip mb-4">Open your diary</Link>
       <Link href="/" className="mb-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-3.5 w-3.5" /> Back to Weekly Pulse
       </Link>
@@ -246,6 +248,7 @@ export default function ProfilePage() {
           <p className="pt-2 text-xs text-muted-foreground">No custom collections yet — create one from any title's detail page.</p>
         )}
       </section>
+      <SyncPanel />
     </div>
   );
 }

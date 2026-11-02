@@ -14,6 +14,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Daily safety-net prefetch: a no-op when this week is already cached, a
+  // rebuild if the Friday run missed it. Runs even if push isn't configured.
+  const prefetchWeek = listWeeks().find((w) => w.isCurrent);
+  if (prefetchWeek) await listTitlesForWeek(prefetchWeek.id).catch(() => []);
+
   if (!isPushEnabled()) {
     return NextResponse.json({ skipped: true, reason: "VAPID keys not configured" });
   }

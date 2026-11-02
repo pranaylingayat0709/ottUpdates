@@ -12,7 +12,19 @@ interface Overrides {
   pinnedTitles: unknown[];
 }
 
+interface Diagnostics {
+  byLanguage: Record<string, number>;
+  byPlatform: Record<string, number>;
+  withCast: number;
+  withRealLinks: number;
+  kvAttached: boolean;
+  snapshotFetchedAt: string | null;
+  usage: { month: string; callsThisInstance: number; callsThisMonthKv: number | null } | null;
+  monthlyQuota: number;
+}
+
 interface CuratedStatus {
+  diagnostics?: Diagnostics;
   totalSeeds: number;
   activeThisWeek: number;
   currentWeekLabel: string;
@@ -26,6 +38,48 @@ interface CuratedStatus {
     totalTitleCount: number;
     watchmodeError?: { status: number | null; message: string; at: string } | null;
   };
+}
+
+function DiagnosticsPanel({ d, total, week }: { d: Diagnostics; total: number; week: string }) {
+  const used = d.usage?.callsThisMonthKv ?? null;
+  const pct = used !== null ? Math.min(100, Math.round((used / d.monthlyQuota) * 100)) : null;
+  const langs = ["HINDI", "MARATHI", "ENGLISH", "OTHER"];
+  const missingIndian = (d.byLanguage.HINDI ?? 0) + (d.byLanguage.MARATHI ?? 0) === 0;
+  return (
+    <div className="glass-panel mb-4 space-y-3 p-4 text-xs">
+      <h2 className="text-sm font-bold">Diagnostics — {week}</h2>
+      <div className="flex flex-wrap gap-2">
+        {langs.map((l) => (
+          <span key={l} className="chip">{l.charAt(0) + l.slice(1).toLowerCase()}: <strong>{d.byLanguage[l] ?? 0}</strong></span>
+        ))}
+        <span className="chip">Total: <strong>{total}</strong></span>
+        <span className="chip">With cast: <strong>{d.withCast}</strong></span>
+        <span className="chip">Real watch links: <strong>{d.withRealLinks}</strong></span>
+      </div>
+      {missingIndian && total > 0 && (
+        <p className="text-amber-400">No Hindi or Marathi titles this week. Either none were released, or Watchmode&apos;s language filter returned nothing — check the Watchmode error above.</p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {Object.entries(d.byPlatform).sort((a, b) => b[1] - a[1]).map(([p, n]) => (
+          <span key={p} className="chip">{p}: {n}</span>
+        ))}
+      </div>
+      <div>
+        <p className="mb-1 text-muted-foreground">
+          Watchmode calls this month ({d.usage?.month ?? "—"}):{" "}
+          {used !== null ? <strong>{used} / {d.monthlyQuota}</strong> : <span>unknown — attach Vercel KV to track across instances (this instance: {d.usage?.callsThisInstance ?? 0})</span>}
+        </p>
+        {pct !== null && (
+          <div className="h-2 overflow-hidden rounded-full bg-[hsl(var(--foreground)/0.1)]" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Watchmode quota used">
+            <div className={`h-full ${pct >= 80 ? "bg-rose-500" : pct >= 60 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
+          </div>
+        )}
+      </div>
+      <p className="text-muted-foreground">
+        Snapshot fetched: {d.snapshotFetchedAt ? new Date(d.snapshotFetchedAt).toLocaleString() : "unknown"} · Vercel KV: {d.kvAttached ? "attached" : <strong className="text-amber-400">not attached</strong>}
+      </p>
+    </div>
+  );
 }
 
 // Owner-only curation panel — lets you fix live-data issues (hide a bad
@@ -207,6 +261,8 @@ export function AdminDashboard() {
           )}
         </div>
       )}
+
+      {curatedStatus?.diagnostics && <DiagnosticsPanel d={curatedStatus.diagnostics} total={curatedStatus.dataSource?.totalTitleCount ?? 0} week={curatedStatus.currentWeekLabel} />}
 
       {curatedStatus && (
         <div

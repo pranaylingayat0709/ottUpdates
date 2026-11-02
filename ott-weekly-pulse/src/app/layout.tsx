@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Sora } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import { ClientErrorReporter } from "@/components/ClientErrorReporter";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -13,7 +15,8 @@ import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { BackToTop } from "@/components/BackToTop";
-import { CommandPalette } from "@/components/CommandPalette";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { LazyGlobals } from "@/components/LazyGlobals";
 import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
 import { CollectionImportHandler } from "@/components/CollectionImportHandler";
 import { Suspense } from "react";
@@ -94,7 +97,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <MobileBottomNav />
               <BackToTop />
               <KeyboardShortcuts />
-              <CommandPalette />
+              <LazyGlobals />
+              <OfflineBanner />
               <Suspense fallback={null}>
                 <CollectionImportHandler />
               </Suspense>
@@ -103,6 +107,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </AccentProvider>
         </ThemeProvider>
         <Analytics />
+        <SpeedInsights />
+        <ClientErrorReporter />
       </body>
     </html>
   );

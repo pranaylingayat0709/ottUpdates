@@ -18,10 +18,10 @@ interface Cmd {
 
 // Ctrl/Cmd+K quick switcher: jump to a title, page or genre, or run an
 // action (theme, watchlist, platforms) without touching the mouse.
-export function CommandPalette() {
+export function CommandPalette({ initialOpen = false }: { initialOpen?: boolean }) {
   const router = useRouter();
   const { setPreference } = useTheme();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -67,6 +67,7 @@ export function CommandPalette() {
       { id: "home", label: "Home", icon: <Home className="h-4 w-4" />, group: "Go to", run: go("/") },
       { id: "top10", label: "Top 10", icon: <TrendingUp className="h-4 w-4" />, group: "Go to", run: go("/top-10") },
       { id: "compare", label: "Compare titles", icon: <Scale className="h-4 w-4" />, group: "Go to", run: go("/compare") },
+      { id: "diary", label: "Diary", icon: <Clapperboard className="h-4 w-4" />, group: "Go to", run: go("/diary") },
       { id: "profile", label: "Profile", icon: <User className="h-4 w-4" />, group: "Go to", run: go("/profile") },
       { id: "wrapped", label: "Wrapped", icon: <Clapperboard className="h-4 w-4" />, group: "Go to", run: go("/wrapped") },
       { id: "best", label: "Best of month", icon: <Clapperboard className="h-4 w-4" />, group: "Go to", run: go("/best-of-month") }

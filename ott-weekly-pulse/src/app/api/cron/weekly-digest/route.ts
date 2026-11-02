@@ -13,6 +13,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Prefetch first: this Friday run is what builds and freezes the new
+  // week's catalog, so no visitor's page load has to trigger the API fetch.
+  // Done before the email check so it still runs when email isn't set up.
+  const weeksForPrefetch = listWeeks();
+  const currentForPrefetch = weeksForPrefetch.find((w) => w.isCurrent);
+  if (currentForPrefetch) await listTitlesForWeek(currentForPrefetch.id).catch(() => []);
+
   if (!isEmailEnabled()) {
     return NextResponse.json({ skipped: true, reason: "RESEND_API_KEY not configured" });
   }

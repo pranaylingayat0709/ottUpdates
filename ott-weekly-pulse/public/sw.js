@@ -9,8 +9,14 @@
 //      server sends one (see src/lib/push.ts), and handles the click to
 //      focus/open the app.
 
-const CACHE_NAME = "owp-shell-v1";
+const CACHE_NAME = "owp-shell-v2";
+const DATA_CACHE = "owp-data-v2";
+const IMG_CACHE = "owp-img-v2";
 const SHELL_URLS = ["/"];
+// Read-only catalog endpoints worth keeping for offline: after one online
+// visit the last viewed week (list, week list, details) still opens offline.
+const CACHEABLE_API = [/\/api\/titles(\/|\?|$)/, /\/api\/weeks$/, /\/api\/leaving$/];
+const IMG_LIMIT = 120;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -20,25 +26,72 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
+  const keep = [CACHE_NAME, DATA_CACHE, IMG_CACHE];
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => !keep.includes(k)).map((k) => caches.delete(k))))
   );
   self.clients.claim();
 });
 
-self.addEventListener("fetch", (event) => {
-  // Network-first for API calls (always want fresh catalog data);
-  // cache-first fallback for everything else (shell/static assets).
-  if (event.request.url.includes("/api/")) return;
+async function trim(cacheName, max) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  for (let i = 0; i < keys.length - max; i++) await cache.delete(keys[i]);
+}
 
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
+  if (req.method !== "GET") return;
+  const url = new URL(req.url);
+
+  // Catalog API: network first (fresh data), fall back to the last copy offline.
+  if (url.origin === self.location.origin && CACHEABLE_API.some((re) => re.test(url.pathname + url.search))) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(DATA_CACHE).then((c) => c.put(req, copy)).catch(() => {});
+          }
+          return res;
+        })
+        .catch(() => caches.match(req).then((hit) => hit || new Response(JSON.stringify({ error: "offline" }), { status: 503, headers: { "Content-Type": "application/json" } })))
+    );
+    return;
+  }
+
+  // Everything else under /api/ (admin, auth, writes' reads, sync): never cached.
+  if (url.pathname.startsWith("/api/")) return;
+
+  // Posters via the Next image optimizer: cache-first, capped.
+  if (url.pathname.startsWith("/_next/image")) {
+    event.respondWith(
+      caches.match(req).then((hit) => {
+        if (hit) return hit;
+        return fetch(req).then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(IMG_CACHE).then((c) => c.put(req, copy).then(() => trim(IMG_CACHE, IMG_LIMIT))).catch(() => {});
+          }
+          return res;
+        });
+      })
+    );
+    return;
+  }
+
+  // Pages and static assets: network first, cached copy when offline;
+  // offline navigations fall back to the cached home page.
   event.respondWith(
-    fetch(event.request)
+    fetch(req)
       .then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone)).catch(() => {});
+        if (response.ok && url.origin === self.location.origin) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone)).catch(() => {});
+        }
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch(() => caches.match(req).then((hit) => hit || (req.mode === "navigate" ? caches.match("/") : undefined)))
   );
 });
 

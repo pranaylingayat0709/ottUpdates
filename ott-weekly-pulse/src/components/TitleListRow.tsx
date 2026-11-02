@@ -7,7 +7,7 @@ import { PLATFORM_LABELS, GENRE_LABELS } from "@/lib/types";
 import { cn, formatRuntime } from "@/lib/utils";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { PosterImage } from "@/components/PosterImage";
-import { TitleModal } from "@/components/TitleModal";
+import { TitleModal } from "@/components/LazyTitleModal";
 import { isNewThisWeek } from "@/lib/freshness";
 
 // Compact single-line alternative to the poster-grid TitleCard — for

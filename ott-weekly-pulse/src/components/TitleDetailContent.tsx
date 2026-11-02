@@ -5,7 +5,7 @@ import { Bookmark, BellRing, CheckCircle2, Clapperboard, ExternalLink, Film, Lan
 import type { Title } from "@/lib/types";
 import { PLATFORM_LABELS, GENRE_LABELS } from "@/lib/types";
 import { formatStartingPrice } from "@/lib/platform-pricing";
-import { cn, formatRuntime } from "@/lib/utils";
+import { cn, formatRuntime, hueFromString } from "@/lib/utils";
 import { EditorialBadgePill } from "@/components/EditorialBadgePill";
 import { PosterImage } from "@/components/PosterImage";
 import { RatingRow } from "@/components/RatingRow";
@@ -28,8 +28,9 @@ import { format } from "date-fns";
 import { downloadReleaseReminderIcs } from "@/lib/ics";
 import { CalendarPlus } from "lucide-react";
 import { ConfettiBurst } from "@/components/ConfettiBurst";
+import { DiaryPanel } from "@/components/DiaryPanel";
 
-export function TitleDetailContent({ title }: { title: Title }) {
+export function TitleDetailContent({ title, stickyWatchBar = false }: { title: Title; stickyWatchBar?: boolean }) {
   const saved = useWatchlistStore((s) => s.isSaved(title.id));
   const toggle = useWatchlistStore((s) => s.toggle);
   const reminded = useReminderStore((s) => s.isReminded(title.id));
@@ -60,6 +61,11 @@ export function TitleDetailContent({ title }: { title: Title }) {
     <div>
       <div className="relative aspect-[16/8] w-full sm:aspect-[16/6]">
         <PosterImage src={title.backdropUrl || title.posterUrl} alt={title.title} fill className="object-cover" priority label="Image not available" />
+        <div
+          className="absolute inset-0 mix-blend-soft-light"
+          style={{ background: `radial-gradient(120% 90% at 20% 0%, hsl(${hueFromString(title.title)} 75% 50% / 0.55), transparent 70%)` }}
+          aria-hidden
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-card via-card/60 to-transparent" />
       </div>
 
@@ -102,6 +108,7 @@ export function TitleDetailContent({ title }: { title: Title }) {
               ? formatRuntime(title.runtimeMinutes) || "Runtime unavailable"
               : `${title.totalEpisodes ? `${title.totalEpisodes} episodes` : "Episode count unavailable"}${title.seasonNumber ? ` · Season ${title.seasonNumber}` : ""}`}
           </span>
+          {title.contentRating && <span className="chip" title="Content rating (India)">{title.contentRating}</span>}
           {title.genres.map((g) => (
             <Link key={g} href={`/genre/${g.toLowerCase().replace(/_/g, "-")}`} className="chip hover:border-accent/50 hover:text-accent">
               {GENRE_LABELS[g] ?? g}
@@ -128,27 +135,26 @@ export function TitleDetailContent({ title }: { title: Title }) {
           </p>
         </div>
 
-        {title.cast.length > 0 && (
+        {(title.cast.length > 0 || title.director) && (
           <div>
-            <h4 className="mb-1.5 text-sm font-bold">Cast</h4>
-            <p className="text-sm text-muted-foreground">
-              {title.cast.map((name, i) => (
-                <span key={name}>
-                  <Link href={`/person/${encodeURIComponent(name)}`} className="hover:text-accent hover:underline">
-                    {name}
+            <h4 className="mb-2 text-sm font-bold">Cast &amp; crew</h4>
+            <ul className="no-scrollbar -mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
+              {[...(title.director ? [{ name: title.director, role: "Director" }] : []), ...title.cast.map((name) => ({ name, role: "Cast" }))].map((p) => (
+                <li key={`${p.role}-${p.name}`} className="w-16 shrink-0 text-center">
+                  <Link href={`/person/${encodeURIComponent(p.name)}`} className="group block">
+                    <span
+                      className="mx-auto flex h-14 w-14 items-center justify-center rounded-full text-sm font-bold text-white shadow-md transition-transform group-hover:scale-105"
+                      style={{ background: `linear-gradient(135deg, hsl(${hueFromString(p.name)} 70% 45%), hsl(${(hueFromString(p.name) + 40) % 360} 70% 35%))` }}
+                      aria-hidden
+                    >
+                      {p.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
+                    </span>
+                    <span className="mt-1.5 line-clamp-2 block text-[11px] font-medium leading-tight group-hover:text-accent">{p.name}</span>
+                    <span className="block text-[10px] text-muted-foreground">{p.role}</span>
                   </Link>
-                  {i < title.cast.length - 1 ? ", " : ""}
-                </span>
+                </li>
               ))}
-              {title.director && (
-                <>
-                  {title.cast.length > 0 ? " · " : ""}Dir.{" "}
-                  <Link href={`/person/${encodeURIComponent(title.director)}`} className="hover:text-accent hover:underline">
-                    {title.director}
-                  </Link>
-                </>
-              )}
-            </p>
+            </ul>
           </div>
         )}
 
@@ -276,12 +282,37 @@ export function TitleDetailContent({ title }: { title: Title }) {
           )}
         </div>
 
+        {!isUpcoming && <DiaryPanel title={title} />}
         {!isUpcoming && <AiVerdictCard titleId={title.id} fallbackWatch={title.aiVerdictWatch} fallbackSkip={title.aiVerdictSkip} />}
         {!isUpcoming && <CriticsTakeCard titleId={title.id} />}
         {!isUpcoming && <MoreLikeThis current={title} />}
 
         {!isUpcoming && <div id="reviews-section"><ReviewsSection titleId={title.id} /></div>}
       </div>
+
+      {stickyWatchBar && !isUpcoming && title.platforms[0] && (
+        <div
+          className="sticky bottom-0 z-10 flex items-center gap-2 border-t bg-card/95 px-4 py-3 backdrop-blur sm:hidden"
+          style={{ borderColor: "hsl(var(--foreground) / 0.1)", paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+        >
+          <a
+            href={title.platformDeepLinks[title.platforms[0]] ?? "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-primary to-accent px-4 py-2.5 text-sm font-semibold text-white"
+          >
+            {t("title.watchOn")} {PLATFORM_LABELS[title.platforms[0]] ?? title.platforms[0]} <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+          <button
+            onClick={() => toggle(title.id)}
+            aria-pressed={saved}
+            aria-label={saved ? "Remove from watchlist" : "Add to watchlist"}
+            className={cn("rounded-full border p-2.5", saved && "border-accent/50 text-accent")}
+          >
+            <Bookmark className={cn("h-4 w-4", saved && "fill-current")} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { Bookmark, Check, Eye, PlayCircle, Share2, Star, Languages } from "lucide-react";
+import { Bell, Bookmark, Check, Eye, PlayCircle, Share2, Star, Languages } from "lucide-react";
 import { useWatchedStore } from "@/hooks/useWatchedStore";
+import { useReminderStore } from "@/hooks/useReminderStore";
+import { subscribeForTitle } from "@/hooks/usePushNotifications";
 import type { Title } from "@/lib/types";
 import { PLATFORM_LABELS } from "@/lib/types";
 import { PlatformMark } from "@/components/PlatformMark";
@@ -14,7 +16,7 @@ import { PosterImage } from "@/components/PosterImage";
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { useTrailerPlayer } from "@/hooks/useTrailerPlayer";
 import { getTrailerAction } from "@/lib/youtube";
-import { TitleModal } from "@/components/TitleModal";
+import { TitleModal, preloadTitleModal } from "@/components/LazyTitleModal";
 
 export function TitleCard({ title, className }: { title: Title; className?: string }) {
   const [open, setOpen] = useState(false);
@@ -24,6 +26,9 @@ export function TitleCard({ title, className }: { title: Title; className?: stri
   const watched = useWatchedStore((s) => s.items.some((i) => i.id === title.id));
   const toggleWatched = useWatchedStore((s) => s.toggle);
   const [copied, setCopied] = useState(false);
+  const isUpcoming = new Date(title.releaseDate) > new Date();
+  const reminded = useReminderStore((s) => s.isReminded(title.id));
+  const toggleReminder = useReminderStore((s) => s.toggle);
   async function share() {
     const url = `${window.location.origin}/title/${title.id}`;
     try {
@@ -67,6 +72,7 @@ export function TitleCard({ title, className }: { title: Title; className?: stri
     tiltY.set((e.clientY - rect.top) / rect.height - 0.5);
   }
   function handleMouseEnter() {
+    preloadTitleModal();
     if (trailerAction.kind !== "play") return;
     hoverTimer.current = setTimeout(() => setPreviewReady(true), 450);
   }
@@ -95,6 +101,7 @@ export function TitleCard({ title, className }: { title: Title; className?: stri
           }
         }}
         onClick={() => setOpen(true)}
+        onFocus={preloadTitleModal}
         onMouseMove={handleMouseMove}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -156,7 +163,21 @@ export function TitleCard({ title, className }: { title: Title; className?: stri
             <Bookmark className={cn("h-3.5 w-3.5", saved && "fill-current")} />
           </motion.button>
 
-          <div className="absolute right-2 top-11 z-10 flex flex-col gap-1.5 opacity-0 transition-opacity duration-200 focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:hidden">
+          {isUpcoming && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleReminder({ id: title.id, title: title.title });
+                if (!reminded) void subscribeForTitle(title.title);
+              }}
+              aria-pressed={reminded}
+              aria-label={reminded ? "Cancel release reminder" : "Notify me when it drops"}
+              className={cn("absolute right-2 top-11 z-10 flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold backdrop-blur-md", reminded ? "bg-accent text-white" : "bg-black/50 text-white")}
+            >
+              <Bell className={cn("h-3 w-3", reminded && "fill-current")} /> {reminded ? "Reminder set" : "Notify me"}
+            </button>
+          )}
+          <div className={cn("absolute right-2 top-11 z-10 flex flex-col gap-1.5 opacity-0 transition-opacity duration-200 focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:hidden", isUpcoming && "hidden")}>
             <button
               onClick={(e) => {
                 e.stopPropagation();

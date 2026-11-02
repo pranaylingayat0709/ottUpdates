@@ -4,6 +4,7 @@ import { format, isSameDay } from "date-fns";
 import { motion } from "framer-motion";
 import type { Title } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { ShareWeekButton } from "@/components/ShareWeekButton";
 import { RailsView } from "@/components/RailsView";
 import { TitleCard } from "@/components/TitleCard";
 import { TitleListRow } from "@/components/TitleListRow";
@@ -15,7 +16,7 @@ import { useI18n } from "@/components/LanguageProvider";
 import { EmptyState } from "@/components/EmptyState";
 import { useViewPreferences, sortTitles, type SortMode } from "@/hooks/useViewPreferences";
 import { useMyPlatformsStore } from "@/hooks/useMyPlatformsStore";
-import { CalendarRange, Clapperboard, Tv, BookOpen, ChevronDown, LayoutGrid, List, LayoutTemplate, ArrowUpDown, GalleryHorizontal } from "lucide-react";
+import { CalendarPlus, CalendarRange, Clapperboard, Tv, BookOpen, ChevronDown, LayoutGrid, List, LayoutTemplate, ArrowUpDown, GalleryHorizontal } from "lucide-react";
 
 const gridVariants = {
   hidden: {},
@@ -222,9 +223,17 @@ export function ReleaseCalendar({ titles }: { titles: Title[] }) {
 
   return (
     <div>
-      <h2 className="mb-4 flex items-center gap-2 font-display text-xl font-bold tracking-tight sm:text-2xl">
-        <CalendarRange className="h-5 w-5 text-accent" /> {t("calendar.title")}
-      </h2>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 font-display text-xl font-bold tracking-tight sm:text-2xl">
+          <CalendarRange className="h-5 w-5 text-accent" /> {t("calendar.title")}
+        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+        <ShareWeekButton weekId={titles[0]?.weekId} />
+        <a href={`/api/calendar${titles[0]?.weekId ? `?week=${encodeURIComponent(titles[0].weekId)}` : ""}`} download className="chip" aria-label="Add this week's releases to your calendar">
+          <CalendarPlus className="h-3.5 w-3.5" /> Add week to calendar
+        </a>
+        </div>
+      </div>
 
       <div className="mb-6 grid grid-cols-7 gap-1.5 sm:gap-2">
         {days.map((day) => {

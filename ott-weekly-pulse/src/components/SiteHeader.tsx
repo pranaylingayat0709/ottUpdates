@@ -5,9 +5,11 @@ import { Bookmark, Clapperboard, Scale, Search, TrendingUp, Tv, User } from "luc
 import { useWatchlistStore } from "@/hooks/useWatchlistStore";
 import { useMyPlatformsStore } from "@/hooks/useMyPlatformsStore";
 import { useState, useEffect, useRef } from "react";
-import { WatchlistDrawer } from "@/components/WatchlistDrawer";
-import { MyPlatformsPicker } from "@/components/MyPlatformsPicker";
-import { TasteOnboardingModal } from "@/components/TasteOnboardingModal";
+import dynamic from "next/dynamic";
+// Panels that only appear on demand are split out of the initial bundle.
+const WatchlistDrawer = dynamic(() => import("@/components/WatchlistDrawer").then((m) => m.WatchlistDrawer), { ssr: false });
+const MyPlatformsPicker = dynamic(() => import("@/components/MyPlatformsPicker").then((m) => m.MyPlatformsPicker), { ssr: false });
+const TasteOnboardingModal = dynamic(() => import("@/components/TasteOnboardingModal").then((m) => m.TasteOnboardingModal), { ssr: false });
 import { useTasteStore } from "@/hooks/useTasteStore";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageToggle } from "@/components/LanguageToggle";
